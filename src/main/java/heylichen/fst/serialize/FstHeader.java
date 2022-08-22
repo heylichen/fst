@@ -54,10 +54,19 @@ public class FstHeader {
     }
 
     byte[] startAddrBytes = input.readBackward(8);
-    long readStartAddress = BytesCodec.decodeLong(startAddrBytes);
+    this.startAddress = BytesCodec.decodeLong(startAddrBytes);
     remaining -= 8;
-    //TODO
 
+    int size = getCharIndexSize();
+    if (remaining < size) {
+      return false;
+    }
+
+    byte[] charIndexBytes = input.readBackward(size);
+    String tempStr =  new String(charIndexBytes, StandardCharsets.UTF_8);
+    this.charIndex = tempStr.toCharArray();
+
+    initNeedOutput();
     return true;
   }
 
