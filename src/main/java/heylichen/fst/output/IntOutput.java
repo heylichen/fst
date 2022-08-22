@@ -3,7 +3,9 @@ package heylichen.fst.output;
 import java.io.IOException;
 import java.io.OutputStream;
 
-public class IntOutput implements OutputOperation<Integer> {
+public class IntOutput implements Output<Integer> {
+  private Integer data;
+
   public static final IntOutput INSTANCE = new IntOutput();
 
   @Override
@@ -22,8 +24,8 @@ public class IntOutput implements OutputOperation<Integer> {
   }
 
   @Override
-  public void prepend(Integer base, Integer value) {
-    base += value;
+  public void prepend(Output<Integer> preValue) {
+    this.data += preValue.getData();
   }
 
   @Override
@@ -44,5 +46,10 @@ public class IntOutput implements OutputOperation<Integer> {
   @Override
   public void writeByteValue(OutputStream os, Integer value) throws IOException {
     VBCodec.encodeReverse(value, os);
+  }
+
+  @Override
+  public Integer getData() {
+    return null;
   }
 }

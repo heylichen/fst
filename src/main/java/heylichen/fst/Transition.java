@@ -1,5 +1,6 @@
 package heylichen.fst;
 
+import heylichen.fst.output.Output;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,8 +11,8 @@ import java.util.Objects;
 public class Transition<O> {
   private long id;
   private boolean toFinal;
-  private O stateOutput;
-  private O output;
+  private Output<O> stateOutput;
+  private Output<O> output;
 
   @Override
   public boolean equals(Object o) {
