@@ -4,7 +4,11 @@ import heylichen.fst.output.Output;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.MurmurHash2;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 
 @Slf4j
@@ -57,5 +61,29 @@ public class State<O> {
     }
   }
 
-  //TODO hash
+  public long hash() {
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    DataOutputStream dos = new DataOutputStream(bos);
+    transitions.foreach((Character ch, Transition<O> t) -> {
+      try {
+        dos.writeChar(ch);
+        dos.writeLong(t.getId());
+        Output<O> out = t.getOutput();
+        if (out != null && !out.empty(out.getData())) {
+          out.writeByteValue(dos, out.getData());
+        }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    });
+    if (isFinalState() && stateOutput != null && !stateOutput.empty(stateOutput.getData())) {
+      try {
+        stateOutput.writeByteValue(dos, stateOutput.getData());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    byte[] bytes = bos.toByteArray();
+    return MurmurHash2.hash64(bytes, bytes.length, 0);
+  }
 }

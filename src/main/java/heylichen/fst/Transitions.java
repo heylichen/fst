@@ -2,17 +2,15 @@ package heylichen.fst;
 
 import heylichen.fst.output.Output;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public class Transitions<O> {
-  //keep insertion order
-  private LinkedHashMap<Character, Transition<O>> arcToStateAndOutputMap;
+  private List<CharTransition<O>> charTransitions;
 
   public int size() {
-    return arcToStateAndOutputMap.size();
+    return charTransitions.size();
   }
 
   public boolean empty() {
@@ -20,32 +18,56 @@ public class Transitions<O> {
   }
 
   public Output<O> getOutput(char arc) {
-    return arcToStateAndOutputMap.get(arc).getOutput();
+    CharTransition<O> charTransition = get(arc);
+    assert charTransition != null;
+    return charTransition.getTransition().getOutput();
+  }
+
+  private CharTransition<O> get(char arc) {
+    for (CharTransition<O> charTransition : charTransitions) {
+      if (charTransition.getCh() == arc) {
+        return charTransition;
+      }
+    }
+    return null;
+  }
+
+  public CharTransition<O> get(int i) {
+    return charTransitions.get(i);
   }
 
   public void foreach(BiConsumer<Character, Transition<O>> consumer) {
-    for (Map.Entry<Character, Transition<O>> entry : arcToStateAndOutputMap.entrySet()) {
-      consumer.accept(entry.getKey(), entry.getValue());
+    for (CharTransition<O> charTransition : charTransitions) {
+      consumer.accept(charTransition.getCh(), charTransition.getTransition());
     }
   }
 
   public void clear() {
-    arcToStateAndOutputMap.clear();
+    charTransitions.clear();
   }
 
   public void setTransition(char arc, State<O> state) {
-    Transition<O> t = arcToStateAndOutputMap.computeIfAbsent(arc, k -> new Transition<O>());
+    CharTransition<O> charTransition = get(arc);
+    if (charTransition == null) {
+      charTransition = new CharTransition<>();
+      charTransitions.add(charTransition);
+    }
+    Transition<O> t = charTransition.getTransition();
     t.setId(state.getId());
     t.setToFinal(state.isFinalState());
     t.setStateOutput(state.getStateOutput());
   }
 
   public void setOutput(char arc, Output<O> output) {
-    arcToStateAndOutputMap.get(arc).setOutput(output);
+    CharTransition<O> charTransition = get(arc);
+    assert charTransition != null;
+    charTransition.getTransition().setOutput(output);
   }
 
   public void prependOutput(char arc, Output<O> output) {
-    Output<O> base = arcToStateAndOutputMap.get(arc).getOutput();
+    CharTransition<O> charTransition = get(arc);
+    assert charTransition != null;
+    Output<O> base = charTransition.getTransition().getOutput();
     base.prepend(output);
   }
 
@@ -54,17 +76,15 @@ public class Transitions<O> {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     Transitions<O> that = (Transitions<O>) o;
-    if (arcToStateAndOutputMap.size() != that.arcToStateAndOutputMap.size()) {
+    if (charTransitions.size() != that.charTransitions.size()) {
       return false;
     }
 
-    LinkedHashMap<Character, Transition<O>> thatMap = that.arcToStateAndOutputMap;
-    for (Map.Entry<Character, Transition<O>> entry : arcToStateAndOutputMap.entrySet()) {
-      Transition thatTran = thatMap.get(entry.getKey());
-      if (thatTran == null) {
-        return false;
-      }
-      if (!thatTran.equals(entry.getValue())) {
+    List<CharTransition<O>> thatMap = that.charTransitions;
+    for (int i = 0; i < charTransitions.size(); i++) {
+      CharTransition<O> thisTran = charTransitions.get(i);
+      CharTransition<O> thatTran = thatMap.get(i);
+      if (!thisTran.equals(thatTran)) {
         return false;
       }
     }
@@ -73,6 +93,6 @@ public class Transitions<O> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(arcToStateAndOutputMap);
+    return Objects.hash(charTransitions);
   }
 }
