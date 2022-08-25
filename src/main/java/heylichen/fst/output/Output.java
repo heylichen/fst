@@ -16,7 +16,9 @@ public interface Output<T> {
 
   T getCommonPrefix(T a, T b);
 
-  int getByteValueSize(T value);
+  int getByteValueSize();
+
+  void writeByteValue(OutputStream os) throws IOException;
 
   void writeByteValue(OutputStream os, T value) throws IOException;
 

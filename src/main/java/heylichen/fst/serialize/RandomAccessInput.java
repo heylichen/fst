@@ -3,7 +3,7 @@ package heylichen.fst.serialize;
 import java.io.IOException;
 import java.util.function.Consumer;
 
-public interface RandomAccessInput<T extends InputEntry> {
+public interface RandomAccessInput<O> {
 
   void seek(long pos) throws IOException;
 
@@ -11,5 +11,5 @@ public interface RandomAccessInput<T extends InputEntry> {
 
   byte readBackward();
 
-  void foreach(Consumer<T> consumer);
+  void foreach(Consumer<InputEntry<O>> consumer);
 }

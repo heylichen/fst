@@ -1,24 +1,41 @@
 package heylichen.fst.serialize;
 
 import heylichen.fst.output.IntOutput;
+import heylichen.fst.output.Output;
 import heylichen.fst.output.OutputOperation;
 import heylichen.fst.output.VBCodec;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
+@Getter
+@Setter
 public class FstRecord<T> {
   private RecordHeader header;
   private char label;
   private int delta;
   private boolean needOutput;
   private boolean needStateOutput;
-  private T output;
-  private T stateOutput;
+  private Output<T> output;
+  private Output<T> stateOutput;
   private final IntOutput intOutput = IntOutput.INSTANCE;
 
-  public int getByteSize(OutputOperation<T> outputOperation) {
+  public FstRecord(boolean needOutput, boolean needStateOutput) {
+    this.needOutput = needOutput;
+    this.needStateOutput = needStateOutput;
+    if (!needOutput) {
+      header = new NoOutputHeader();
+    } else if (needStateOutput) {
+      header = new OutputAndStateOutputHeader();
+    } else {
+      header = new OutputHeader();
+    }
+  }
+
+  public int getByteSize() {
     // 1 is for record head byte
     int size = 1;
     if (header.getLabelIndex() == 0) {
@@ -28,10 +45,10 @@ public class FstRecord<T> {
       size += VBCodec.getEncodedBytes(delta);
     }
     if (needOutput && header.hasOutput()) {
-      size += outputOperation.getByteValueSize(output);
+      size += output.getByteValueSize();
     }
     if (needStateOutput && header.hasStateOutput()) {
-      size += outputOperation.getByteValueSize(stateOutput);
+      size += stateOutput.getByteValueSize();
     }
     return size;
   }
@@ -39,17 +56,17 @@ public class FstRecord<T> {
   /**
    * serialize a fst record.
    * Note that it's written in reverse order, record header written last.
+   *
    * @param os
-   * @param outputOperation
    * @throws IOException
    */
-  public void write(OutputStream os, OutputOperation<T> outputOperation) throws IOException {
+  public void write(OutputStream os) throws IOException {
     if (needOutput) {
       if (needStateOutput && header.hasStateOutput()) {
-        outputOperation.writeByteValue(os, stateOutput);
+        stateOutput.writeByteValue(os);
       }
       if (header.hasOutput()) {
-        outputOperation.writeByteValue(os, output);
+        output.writeByteValue(os);
       }
     }
     if (!header.isNoAddress()) {

@@ -1,5 +1,7 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.output.Output;
+
 /**
  * with output and state output
  *
@@ -8,7 +10,9 @@ package heylichen.fst.serialize;
  * bits       1            1         1         1             1               3
  * bit   no_address    last trans   final  has output has state output  label index
  */
-public class OutputAndStateOutputHeader extends RecordHeader {
+public class OutputAndStateOutputHeader extends RecordHeader{
+  public static final int OUTPUT_FLAG = 0b0000_1000;
+  public static final int STATE_OUTPUT_FLAG = 0b0001_0000;
 
   @Override
   public int getLabelIndex() {
@@ -36,6 +40,15 @@ public class OutputAndStateOutputHeader extends RecordHeader {
   boolean hasOutput() {
     return true;
   }
+
+  void setHasOutput(boolean has) {
+    header = (byte) (has ? (header & 0xFF | OUTPUT_FLAG) : (header & 0xFF & OUTPUT_FLAG));
+  }
+
+  void setHasStateOutput(boolean has) {
+    header = (byte) (has ? (header & 0xFF | STATE_OUTPUT_FLAG) : (header & 0xFF & STATE_OUTPUT_FLAG));
+  }
+
 
   @Override
   boolean hasStateOutput() {

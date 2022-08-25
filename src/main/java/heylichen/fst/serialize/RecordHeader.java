@@ -1,13 +1,16 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.output.Output;
+
 public abstract class RecordHeader {
-  public static final int NO_ADDRESS = 0b1000_0000;
-  public static final int LAST_TRANSITION = 0b0100_0000;
-  public static final int FINAL = 0b0010_0000;
+  public static final int NO_ADDRESS = 0b0000_0001;
+  public static final int LAST_TRANSITION = 0b0000_0010;
+  public static final int FINAL = 0b0000_0100;
 
   protected byte header;
 
   public RecordHeader() {
+    header = 0;
   }
 
   public RecordHeader(byte header) {
@@ -36,17 +39,35 @@ public abstract class RecordHeader {
     return (header & NO_ADDRESS) != 0;
   }
 
+  public void setNoAddress(boolean noAddress) {
+    header = (byte) (noAddress ? (header & 0xFF | NO_ADDRESS) : (header & 0xFF & NO_ADDRESS));
+  }
+
   public boolean isLastTransition() {
     return (header & LAST_TRANSITION) != 0;
+  }
+
+  public void setLastTransition(boolean last) {
+    header = (byte) (last ? (header & 0xFF | LAST_TRANSITION) : (header & 0xFF & LAST_TRANSITION));
   }
 
   public boolean isFinal() {
     return (header & FINAL) != 0;
   }
 
+  public void setFinal(boolean isFinal) {
+    header = (byte) (isFinal ? (header & 0xFF | FINAL) : (header & 0xFF & FINAL));
+  }
+
   abstract boolean hasOutput();
 
   abstract boolean hasStateOutput();
+
+  void setHasOutput(boolean has) {
+  }
+
+  void setHasStateOutput(boolean has) {
+  }
 
   public static int getCharIndexSize(boolean hasOutput, boolean hasStateOutput) {
     return !hasOutput ? 32 : (hasStateOutput ? 8 : 16);

@@ -39,11 +39,15 @@ public class IntOutput implements Output<Integer> {
   }
 
   @Override
-  public int getByteValueSize(Integer value) {
-    return VBCodec.getEncodedBytes(value);
+  public int getByteValueSize() {
+    return VBCodec.getEncodedBytes(data);
   }
 
   @Override
+  public void writeByteValue(OutputStream os) throws IOException {
+    VBCodec.encodeReverse(data, os);
+  }
+
   public void writeByteValue(OutputStream os, Integer value) throws IOException {
     VBCodec.encodeReverse(value, os);
   }

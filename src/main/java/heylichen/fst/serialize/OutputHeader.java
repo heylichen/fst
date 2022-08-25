@@ -9,6 +9,7 @@ package heylichen.fst.serialize;
  * bit   no_address    last trans   final  has output label index
  */
 public class OutputHeader extends RecordHeader {
+  public static final int OUTPUT_FLAG = 0b0000_1000;
 
   @Override
   public int getLabelIndex() {
@@ -36,6 +37,14 @@ public class OutputHeader extends RecordHeader {
   boolean hasOutput() {
     return true;
   }
+
+  void setHasOutput(boolean has) {
+    header = (byte) (has ? (header & 0xFF | OUTPUT_FLAG) : (header & 0xFF & OUTPUT_FLAG));
+  }
+
+  void setHasStateOutput(boolean has) {
+  }
+
 
   @Override
   boolean hasStateOutput() {
