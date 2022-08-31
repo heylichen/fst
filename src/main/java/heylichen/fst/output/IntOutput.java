@@ -6,7 +6,11 @@ import java.io.OutputStream;
 public class IntOutput implements Output<Integer> {
   private Integer data;
 
-  public static final IntOutput INSTANCE = new IntOutput();
+  public static final IntOutput INSTANCE = new IntOutput(null);
+
+  public IntOutput(Integer data) {
+    this.data = data;
+  }
 
   @Override
   public OutputType type() {
@@ -14,8 +18,8 @@ public class IntOutput implements Output<Integer> {
   }
 
   @Override
-  public boolean empty(Integer value) {
-    return value.equals(0);
+  public boolean empty() {
+    return data.equals(0);
   }
 
   @Override
@@ -29,13 +33,13 @@ public class IntOutput implements Output<Integer> {
   }
 
   @Override
-  public Integer getSuffix(Integer base, Integer prefix) {
-    return base - prefix;
+  public Output<Integer> getSuffix(Output<Integer> prefix) {
+    return new IntOutput(data - prefix.getData());
   }
 
   @Override
-  public Integer getCommonPrefix(Integer a, Integer b) {
-    return Math.min(a, b);
+  public Output<Integer> getCommonPrefix(Output<Integer> other) {
+    return new IntOutput(Math.min(data, other.getData()));
   }
 
   @Override
@@ -54,6 +58,6 @@ public class IntOutput implements Output<Integer> {
 
   @Override
   public Integer getData() {
-    return null;
+    return data;
   }
 }

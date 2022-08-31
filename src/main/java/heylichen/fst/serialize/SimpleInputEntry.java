@@ -1,8 +1,15 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.output.Output;
+
 public class SimpleInputEntry<O> implements InputEntry<O> {
   private String key;
-  private O data;
+  private Output<O> data;
+
+  public SimpleInputEntry(String key, Output<O> data) {
+    this.key = key;
+    this.data = data;
+  }
 
   @Override
   public String getKey() {
@@ -10,7 +17,7 @@ public class SimpleInputEntry<O> implements InputEntry<O> {
   }
 
   @Override
-  public O getValue() {
+  public Output<O> getValue() {
     return data;
   }
 }

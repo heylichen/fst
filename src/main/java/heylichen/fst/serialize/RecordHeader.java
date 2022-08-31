@@ -2,6 +2,12 @@ package heylichen.fst.serialize;
 
 import heylichen.fst.output.Output;
 
+/**
+ *  * one byte data layout
+ *  * from address high to low
+ *  * bits   5             1          1            1
+ *  * bit  custom     final   last trans    no_address
+ */
 public abstract class RecordHeader {
   public static final int NO_ADDRESS = 0b0000_0001;
   public static final int LAST_TRANSITION = 0b0000_0010;
@@ -40,7 +46,7 @@ public abstract class RecordHeader {
   }
 
   public void setNoAddress(boolean noAddress) {
-    header = (byte) (noAddress ? (header & 0xFF | NO_ADDRESS) : (header & 0xFF & NO_ADDRESS));
+    header = (byte) (noAddress ? (header & 0xFF | NO_ADDRESS) : (header & 0xFF & ~NO_ADDRESS));
   }
 
   public boolean isLastTransition() {
@@ -48,7 +54,7 @@ public abstract class RecordHeader {
   }
 
   public void setLastTransition(boolean last) {
-    header = (byte) (last ? (header & 0xFF | LAST_TRANSITION) : (header & 0xFF & LAST_TRANSITION));
+    header = (byte) (last ? (header & 0xFF | LAST_TRANSITION) : (header & 0xFF & ~LAST_TRANSITION));
   }
 
   public boolean isFinal() {
@@ -56,7 +62,7 @@ public abstract class RecordHeader {
   }
 
   public void setFinal(boolean isFinal) {
-    header = (byte) (isFinal ? (header & 0xFF | FINAL) : (header & 0xFF & FINAL));
+    header = (byte) (isFinal ? (header & 0xFF | FINAL) : (header & 0xFF & ~FINAL));
   }
 
   abstract boolean hasOutput();

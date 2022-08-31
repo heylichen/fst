@@ -1,7 +1,8 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.output.OutputType;
+
 import java.io.IOException;
-import java.util.function.Consumer;
 
 public interface RandomAccessInput<O> {
 
@@ -11,5 +12,7 @@ public interface RandomAccessInput<O> {
 
   byte readBackward();
 
-  void foreach(Consumer<InputEntry<O>> consumer);
+  Iterable<InputEntry<O>> getIterable();
+
+  OutputType getOutputType();
 }

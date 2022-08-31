@@ -6,30 +6,39 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Dictionary<O> {
   public static final int BUCKET_COUNT = 10000;
+  public static final BigInteger BUCKET_COUNT_BI = BigInteger.valueOf(BUCKET_COUNT);
   private List<CacheEntry<O>> entryList = new ArrayList<>(BUCKET_COUNT);
 
-  public int getBucketId(long key) {
-    return (int) (key % BUCKET_COUNT);
+  public Dictionary() {
+    for (int i = 0; i < BUCKET_COUNT; i++) {
+      entryList.add(new CacheEntry<>());
+    }
   }
 
-  public State<O> get(long key, State<O> state) {
+  public int getBucketId(BigInteger key) {
+    return key.mod(BUCKET_COUNT_BI).intValue();
+  }
+
+  public State<O> get(BigInteger key, State<O> state) {
     int bucketId = getBucketId(key);
     CacheEntry<O> entry = entryList.get(bucketId);
-    if (state.equals(entry.first)) {
+    if (Objects.equals(state, entry.first)) {
       return entry.first;
     }
-    if (state.equals(entry.second)) {
+    if (Objects.equals(state, entry.second)) {
       State<O> tmp = entry.second;
       entry.second = entry.first;
       entry.first = tmp;
       return tmp;
     }
-    if (state.equals(entry.third)) {
+    if (Objects.equals(state, entry.third)) {
       State<O> tmp = entry.third;
       entry.third = entry.first;
       entry.first = tmp;
@@ -38,7 +47,7 @@ public class Dictionary<O> {
     return null;
   }
 
-  public void put(long key, State<O> state) {
+  public void put(BigInteger key, State<O> state) {
     int bucketId = getBucketId(key);
     CacheEntry<O> entry = entryList.get(bucketId);
     if (entry.getThird() != null) {
@@ -50,8 +59,8 @@ public class Dictionary<O> {
     entry.setFirst(state);
   }
 
-  public Pair<Boolean,State<O>> findMinimized(State<O> state) {
-    long key = state.hash();
+  public Pair<Boolean, State<O>> findMinimized(State<O> state) {
+    BigInteger key = state.hash();
 
     State<O> got = get(key, state);
     if (got != null) {

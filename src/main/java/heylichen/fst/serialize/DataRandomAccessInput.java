@@ -1,8 +1,9 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.output.OutputType;
+
 import java.io.IOException;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class DataRandomAccessInput<O> implements RandomAccessInput<O> {
   private List<InputEntry<O>> data;
@@ -24,10 +25,13 @@ public class DataRandomAccessInput<O> implements RandomAccessInput<O> {
   }
 
   @Override
-  public void foreach(Consumer<InputEntry<O>> consumer) {
-    for (InputEntry<O> datum : data) {
-      consumer.accept(datum);
-    }
+  public Iterable<InputEntry<O>> getIterable() {
+    return data;
+  }
+
+  @Override
+  public OutputType getOutputType() {
+    return OutputType.INT;
   }
 }
 

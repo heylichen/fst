@@ -6,15 +6,15 @@ import java.io.OutputStream;
 public interface Output<T> {
   OutputType type();
 
-  boolean empty(T value);
+  boolean empty();
 
   T getInitValue();
 
   void prepend(Output<T> preValue);
 
-  T getSuffix(T base, T prefix);
+  Output<T> getSuffix(Output <T> prefix);
 
-  T getCommonPrefix(T a, T b);
+  Output<T> getCommonPrefix(Output<T> other);
 
   int getByteValueSize();
 

@@ -4,6 +4,8 @@ import heylichen.fst.CharTransition;
 import heylichen.fst.State;
 import heylichen.fst.Transition;
 import heylichen.fst.Transitions;
+import heylichen.fst.output.Output;
+import heylichen.fst.output.OutputType;
 import heylichen.fst.output.VBCodec;
 import lombok.Getter;
 
@@ -11,10 +13,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
 
-public class FstWriter<O, I extends InputEntry<O>> {
+@Getter
+public class FstWriter<O> {
   private final OutputStream os;
   private final boolean needOutput;
   private final boolean needStateOutput;
+  private final OutputType outputType;
   private Map<Character, Integer> charIndexMap;
 
   private Map<Character, Counter> charCountMap;
@@ -34,6 +38,7 @@ public class FstWriter<O, I extends InputEntry<O>> {
     initCharIndexTable(input);
     stateRecordIndexMap = new HashMap<>();
     arcAddressTable = new ArrayList<>();
+    this.outputType = input.getOutputType();
   }
 
 
@@ -41,15 +46,15 @@ public class FstWriter<O, I extends InputEntry<O>> {
     charCountMap = new HashMap<>();
     biGramCountMap = new HashMap<>();
 
-    input.foreach((InputEntry<O> en) -> {
+    for (InputEntry<O> en : input.getIterable()) {
       String keyWord = en.getKey();
       char prev = 0;
       for (char ch : keyWord.toCharArray()) {
         charCountMap.computeIfAbsent(ch, k -> new Counter(k, 0)).increment();
         biGramCountMap.computeIfAbsent(genBiGramKey(prev, ch), k -> new Counter(0)).increment();
+        prev = ch;
       }
-    });
-
+    }
     List<Counter> counters = new ArrayList<>(charCountMap.values());
     counters.sort(Comparator.comparing(Counter::getCount).reversed());
 
@@ -77,6 +82,15 @@ public class FstWriter<O, I extends InputEntry<O>> {
     if (transitions != null && !transitions.empty()) {
       stateRecordIndexMap.put(state.getId(), arcAddressTable.size() - 1);
     }
+  }
+
+  public void close() throws IOException {
+    if (arcAddressTable.isEmpty()) {
+      return;
+    }
+    long startByteAddress = arcAddressTable.get(arcAddressTable.size() - 1);
+    FstHeader fstHeader = new FstHeader(outputType, needStateOutput, startByteAddress, charIndexMap);
+    fstHeader.write(os);
   }
 
   private void writeTransitionRecord(Integer arcIndex, State<O> state,
@@ -107,14 +121,14 @@ public class FstWriter<O, I extends InputEntry<O>> {
     }
 
     if (needOutput) {
-      boolean hasOutput = !transition.getOutput().empty(transition.getOutput().getData());
+      boolean hasOutput = transition.getOutput() != null && !transition.getOutput().empty();
       recHeader.setHasOutput(hasOutput);
       if (hasOutput) {
         record.setOutput(transition.getOutput());
       }
 
       if (needStateOutput) {
-        boolean hasStateOutput = !transition.getStateOutput().empty(transition.getStateOutput().getData());
+        boolean hasStateOutput = transition.getStateOutput() != null && !transition.getStateOutput().empty();
         recHeader.setHasStateOutput(hasStateOutput);
         if (hasStateOutput) {
           record.setStateOutput(transition.getStateOutput());
@@ -160,9 +174,10 @@ public class FstWriter<O, I extends InputEntry<O>> {
 
   /**
    * write jump table, has 3 parts:
-   *  1) one byte jumpTableTag
-   *  2) length
-   *  3) elements
+   * 1) one byte jumpTableTag
+   * 2) length
+   * 3) elements
+   *
    * @param jumpTable
    * @param accessibleAddress
    * @param recHeader
@@ -232,6 +247,9 @@ public class FstWriter<O, I extends InputEntry<O>> {
   }
 
   private void reverse(List<Integer> indexes) {
+    if (indexes == null || indexes.isEmpty()) {
+      return;
+    }
     int len = indexes.size() / 2;
     int last = indexes.size() - 1;
     for (int i = 0; i <= len; i++) {
@@ -247,7 +265,7 @@ public class FstWriter<O, I extends InputEntry<O>> {
 
   private List<Integer> genArcIndexes(int transitionCount) {
     List<Integer> arcIndexes = new ArrayList<>(transitionCount);
-    for (int i = 0; i < transitionCount; i--) {
+    for (int i = 0; i < transitionCount; i++) {
       arcIndexes.add(i);
     }
     return arcIndexes;

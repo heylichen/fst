@@ -1,16 +1,14 @@
 package heylichen.fst.serialize;
 
-import heylichen.fst.output.Output;
-
 /**
  * with output and state output
- *
+ * <p>
  * one byte data layout
- * from address low to high
- * bits       1            1         1         1             1               3
- * bit   no_address    last trans   final  has output has state output  label index
+ * from address high to low
+ * bits       3            1                  1             1          1            1
+ * bit   label index  has state output    has output      final   last trans    no_address
  */
-public class OutputAndStateOutputHeader extends RecordHeader{
+public class OutputAndStateOutputHeader extends RecordHeader {
   public static final int OUTPUT_FLAG = 0b0000_1000;
   public static final int STATE_OUTPUT_FLAG = 0b0001_0000;
 
@@ -27,7 +25,7 @@ public class OutputAndStateOutputHeader extends RecordHeader{
     if (index > 7 || index < 0) {
       throw new IllegalArgumentException("invalid index");
     }
-    header = (byte) ((header & 0xFF) | index);
+    header = (byte) ((header & 0xFF) | index << 5);
   }
 
   @Override
@@ -38,20 +36,20 @@ public class OutputAndStateOutputHeader extends RecordHeader{
 
   @Override
   boolean hasOutput() {
-    return true;
+    return (header & OUTPUT_FLAG) != 0;
   }
 
   void setHasOutput(boolean has) {
-    header = (byte) (has ? (header & 0xFF | OUTPUT_FLAG) : (header & 0xFF & OUTPUT_FLAG));
+    header = (byte) (has ? (header & 0xFF | OUTPUT_FLAG) : (header & 0xFF & ~OUTPUT_FLAG));
   }
 
   void setHasStateOutput(boolean has) {
-    header = (byte) (has ? (header & 0xFF | STATE_OUTPUT_FLAG) : (header & 0xFF & STATE_OUTPUT_FLAG));
+    header = (byte) (has ? (header & 0xFF | STATE_OUTPUT_FLAG) : (header & 0xFF & ~STATE_OUTPUT_FLAG));
   }
 
 
   @Override
   boolean hasStateOutput() {
-    return true;
+    return (header & STATE_OUTPUT_FLAG) != 0;
   }
 }

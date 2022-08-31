@@ -9,6 +9,7 @@ import org.apache.commons.codec.digest.MurmurHash2;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Objects;
 
 @Slf4j
@@ -19,6 +20,11 @@ public class State<O> {
   private boolean finalState;
   private Transitions<O> transitions;
   Output<O> stateOutput;
+
+  public State(long id) {
+    transitions = new Transitions<>();
+    this.id = id;
+  }
 
   public Output<O> getOutput(char arc) {
     return transitions.getOutput(arc);
@@ -61,7 +67,7 @@ public class State<O> {
     }
   }
 
-  public long hash() {
+  public BigInteger hash() {
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
     DataOutputStream dos = new DataOutputStream(bos);
     transitions.foreach((Character ch, Transition<O> t) -> {
@@ -69,14 +75,14 @@ public class State<O> {
         dos.writeChar(ch);
         dos.writeLong(t.getId());
         Output<O> out = t.getOutput();
-        if (out != null && !out.empty(out.getData())) {
+        if (out != null && !out.empty()) {
           out.writeByteValue(dos, out.getData());
         }
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     });
-    if (isFinalState() && stateOutput != null && !stateOutput.empty(stateOutput.getData())) {
+    if (isFinalState() && stateOutput != null && !stateOutput.empty()) {
       try {
         stateOutput.writeByteValue(dos, stateOutput.getData());
       } catch (IOException e) {
@@ -84,6 +90,20 @@ public class State<O> {
       }
     }
     byte[] bytes = bos.toByteArray();
-    return MurmurHash2.hash64(bytes, bytes.length, 0);
+    long v = MurmurHash2.hash64(bytes, bytes.length, 0);
+    return toUnsignedBigInteger(v);
+  }
+
+  private static BigInteger toUnsignedBigInteger(long i) {
+    if (i >= 0L) {
+      return BigInteger.valueOf(i);
+    } else {
+      int upper = (int) (i >>> 32);
+      int lower = (int) i;
+      // return (upper << 32) + lower
+      return BigInteger.valueOf(Integer.toUnsignedLong(upper))
+          .shiftLeft(32)
+          .add(BigInteger.valueOf(Integer.toUnsignedLong(lower)));
+    }
   }
 }

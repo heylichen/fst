@@ -2,11 +2,11 @@ package heylichen.fst.serialize;
 
 /**
  * with no output and no state output
- *
+ * <p>
  * one byte data layout
- * from address low to high
- * bits       1            1         1          5
- * bit   no_address    last trans   final  label index
+ * from address high to low
+ * bits       5         1          1            1
+ * bit   label index  final   last trans    no_address
  */
 public class NoOutputHeader extends RecordHeader {
 
@@ -15,7 +15,7 @@ public class NoOutputHeader extends RecordHeader {
     // shift is defined on integer
     // so the byte will be converted to int first then shift
     // first convert the signed integer as the integer from unsigned byte
-    return  (header & 0xFF) >> 3;
+    return (header & 0xFF) >> 3;
   }
 
   @Override
@@ -23,7 +23,7 @@ public class NoOutputHeader extends RecordHeader {
     if (index > 31 || index < 0) {
       throw new IllegalArgumentException("invalid index");
     }
-    header = (byte) ((header & 0xFF) | index);
+    header = (byte) ((header & 0xFF) | index << 3);
   }
 
   @Override

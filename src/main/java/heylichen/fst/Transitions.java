@@ -2,12 +2,17 @@ package heylichen.fst;
 
 import heylichen.fst.output.Output;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public class Transitions<O> {
   private List<CharTransition<O>> charTransitions;
+
+  public Transitions() {
+    this.charTransitions = new ArrayList<>();
+  }
 
   public int size() {
     return charTransitions.size();
@@ -49,7 +54,7 @@ public class Transitions<O> {
   public void setTransition(char arc, State<O> state) {
     CharTransition<O> charTransition = get(arc);
     if (charTransition == null) {
-      charTransition = new CharTransition<>();
+      charTransition = new CharTransition<>(arc);
       charTransitions.add(charTransition);
     }
     Transition<O> t = charTransition.getTransition();
