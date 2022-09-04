@@ -1,6 +1,10 @@
 package heylichen.fst.serialize;
 
+import heylichen.fst.matcher.RandomAccessInput;
 import heylichen.fst.output.OutputType;
+import heylichen.fst.serialize.codec.LenLong;
+import heylichen.fst.serialize.codec.VBCodec;
+import lombok.Getter;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -9,9 +13,12 @@ import java.util.Map;
 
 public class FstHeader {
   private Flags flags;
+  @Getter
   private long startAddress;
   private char charIndex[];
+  @Getter
   private boolean needOutput;
+  @Getter
   private boolean needStateOutput;
 
   public FstHeader() {
@@ -43,8 +50,9 @@ public class FstHeader {
     if (remaining < 1) {
       return false;
     }
-    input.seek(byteCodeSize - 1);
-    flags.data = input.readBackward();
+    long p = byteCodeSize - 1;
+    flags.data = input.readByte(p);
+    p--;
     initNeedOutput();
 
     remaining -= 1;
@@ -53,22 +61,23 @@ public class FstHeader {
       return false;
     }
 
-    byte[] startAddrBytes = input.readBackward(8);
-    this.startAddress = BytesCodec.decodeLong(startAddrBytes);
-    remaining -= 8;
+    LenLong lenLong = VBCodec.decodeLongReverse(input, p);
+    this.startAddress = lenLong.getValue();
+    p -= lenLong.getLen();
+    remaining -= lenLong.getLen();
 
     int size = getCharIndexSize();
     if (remaining < size) {
       return false;
     }
 
-    byte[] charIndexBytes = input.readBackward(size);
-    String tempStr =  new String(charIndexBytes, StandardCharsets.UTF_8);
+    byte[] charIndexBytes = input.readBytes(p - size + 1, size);
+    String tempStr = new String(charIndexBytes, StandardCharsets.UTF_8);
     this.charIndex = tempStr.toCharArray();
 
-    initNeedOutput();
     return true;
   }
+
 
   private void initNeedOutput() {
     this.needOutput = flags.getOutputType() != OutputType.NONE;
@@ -77,7 +86,10 @@ public class FstHeader {
 
   public void write(OutputStream os) throws IOException {
     os.write(String.valueOf(charIndex).getBytes(StandardCharsets.UTF_8));
-    os.write(BytesCodec.encode(startAddress));
+    //TODO compress
+    byte[] buff = new byte[8];
+    int len = VBCodec.encodeReverse(startAddress, buff);
+    os.write(buff, 0, len);
     os.write(flags.data);
   }
 
@@ -115,5 +127,13 @@ public class FstHeader {
     public boolean hasStateOutput() {
       return ((data & 0xFF) & 0b0000_1000) != 0;
     }
+  }
+
+  public OutputType getFlagOutputType() {
+    return flags.getOutputType();
+  }
+
+  public char getChar(int index) {
+    return charIndex[index];
   }
 }

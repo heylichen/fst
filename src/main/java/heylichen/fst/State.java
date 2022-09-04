@@ -19,7 +19,7 @@ public class State<O> {
   private long id;
   private boolean finalState;
   private Transitions<O> transitions;
-  Output<O> stateOutput;
+  private Output<O> stateOutput;
 
   public State(long id) {
     transitions = new Transitions<>();
@@ -43,10 +43,19 @@ public class State<O> {
   }
 
   public void prependSuffixToStateOutput(Output<O> suffix) {
+    if (stateOutput == null) {
+      stateOutput = suffix.copy();
+      return;
+    }
     stateOutput.prepend(suffix);
   }
 
-  public boolean equals(State<O> s) {
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof State)) {
+      return false;
+    }
+    State s = (State) obj;
     if (this == s) {
       return true;
     }
@@ -58,13 +67,6 @@ public class State<O> {
     id = stateId;
     finalState = false;
     transitions.clear();
-    try {
-      stateOutput = stateOutput.getClass().newInstance();
-    } catch (InstantiationException e) {
-      throw new RuntimeException(e);
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   public BigInteger hash() {
@@ -76,7 +78,7 @@ public class State<O> {
         dos.writeLong(t.getId());
         Output<O> out = t.getOutput();
         if (out != null && !out.empty()) {
-          out.writeByteValue(dos, out.getData());
+          out.writeByteValue(dos);
         }
       } catch (IOException e) {
         throw new RuntimeException(e);
@@ -84,7 +86,7 @@ public class State<O> {
     });
     if (isFinalState() && stateOutput != null && !stateOutput.empty()) {
       try {
-        stateOutput.writeByteValue(dos, stateOutput.getData());
+        stateOutput.writeByteValue(dos);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

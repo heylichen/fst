@@ -19,7 +19,9 @@ public class Transition<O> {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     Transition<?> that = (Transition<?>) o;
-    return id == that.id && toFinal == that.toFinal && stateOutput.equals(that.stateOutput) && output.equals(that.output);
+    return id == that.id && toFinal == that.toFinal &&
+        Objects.equals(stateOutput, that.stateOutput)
+        && Objects.equals(output, that.output);
   }
 
   @Override

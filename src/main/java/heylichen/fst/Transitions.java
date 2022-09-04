@@ -1,6 +1,7 @@
 package heylichen.fst;
 
 import heylichen.fst.output.Output;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 
 public class Transitions<O> {
+  @Getter
   private List<CharTransition<O>> charTransitions;
 
   public Transitions() {
@@ -73,7 +75,11 @@ public class Transitions<O> {
     CharTransition<O> charTransition = get(arc);
     assert charTransition != null;
     Output<O> base = charTransition.getTransition().getOutput();
-    base.prepend(output);
+    if (base == null) {
+      charTransition.getTransition().setOutput(output);
+    } else{
+      base.prepend(output);
+    }
   }
 
   @Override

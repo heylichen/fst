@@ -4,13 +4,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 public interface Output<T> {
-  OutputType type();
-
-  boolean empty();
 
   T getInitValue();
+  boolean empty();
 
-  void prepend(Output<T> preValue);
+  T getData();
+
+  void setData(T o);
 
   Output<T> getSuffix(Output <T> prefix);
 
@@ -20,7 +20,16 @@ public interface Output<T> {
 
   void writeByteValue(OutputStream os) throws IOException;
 
-  void writeByteValue(OutputStream os, T value) throws IOException;
+  void prepend(Output<T> preValue);
 
-  T getData();
+  void append(Output<T> v);
+
+  /**
+   * append this with v, not modify this
+   * @param v
+   * @return
+   */
+  Output<T> appendCopy(Output<T> v);
+
+  Output<T> copy();
 }

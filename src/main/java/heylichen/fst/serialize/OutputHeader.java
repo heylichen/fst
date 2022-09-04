@@ -11,6 +11,13 @@ package heylichen.fst.serialize;
 public class OutputHeader extends RecordHeader {
   public static final int OUTPUT_FLAG = 0b0000_1000;
 
+  public OutputHeader() {
+  }
+
+  public OutputHeader(byte header) {
+    super(header);
+  }
+
   @Override
   public int getLabelIndex() {
     // shift is defined on integer
@@ -34,7 +41,7 @@ public class OutputHeader extends RecordHeader {
   }
 
   @Override
-  boolean hasOutput() {
+  public boolean hasOutput() {
     return (header & OUTPUT_FLAG) != 0;
   }
 
@@ -47,7 +54,7 @@ public class OutputHeader extends RecordHeader {
 
 
   @Override
-  boolean hasStateOutput() {
+  public boolean hasStateOutput() {
     return false;
   }
 }

@@ -1,20 +1,19 @@
 package heylichen.fst.output;
 
+import heylichen.fst.matcher.RandomAccessInput;
+import heylichen.fst.serialize.codec.LenInt;
+import heylichen.fst.serialize.codec.VBCodec;
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Objects;
 
-public class IntOutput implements Output<Integer> {
+public class IntOutput implements Output<Integer>, OutputFactory<Integer> {
   private Integer data;
-
-  public static final IntOutput INSTANCE = new IntOutput(null);
 
   public IntOutput(Integer data) {
     this.data = data;
-  }
-
-  @Override
-  public OutputType type() {
-    return OutputType.INT;
   }
 
   @Override
@@ -39,6 +38,9 @@ public class IntOutput implements Output<Integer> {
 
   @Override
   public Output<Integer> getCommonPrefix(Output<Integer> other) {
+    if (other == null) {
+      return new IntOutput(0);
+    }
     return new IntOutput(Math.min(data, other.getData()));
   }
 
@@ -52,12 +54,63 @@ public class IntOutput implements Output<Integer> {
     VBCodec.encodeReverse(data, os);
   }
 
-  public void writeByteValue(OutputStream os, Integer value) throws IOException {
-    VBCodec.encodeReverse(value, os);
-  }
-
   @Override
   public Integer getData() {
     return data;
+  }
+
+  @Override
+  public Pair<Output<Integer>, Integer> readByteValue(RandomAccessInput input, long offset) {
+    LenInt lenInt = VBCodec.decodeReverse(input, offset);
+    Output<Integer> out = new IntOutput(lenInt.getValue());
+    return Pair.of(out, lenInt.getLen());
+  }
+
+  @Override
+  public void append(Output<Integer> v) {
+    data += v.getData();
+  }
+
+  @Override
+  public Output<Integer>  appendCopy(Output<Integer> v) {
+    return new IntOutput(data + v.getData());
+  }
+
+  @Override
+  public void setData(Integer o) {
+    data = o;
+  }
+
+  @Override
+  public Output<Integer> newInstance() {
+    return new IntOutput(0);
+  }
+
+  @Override
+  public OutputType getOutputType() {
+    return OutputType.INT;
+  }
+
+  @Override
+  public Output<Integer> copy() {
+    return new IntOutput(this.data);
+  }
+
+  @Override
+  public String toString() {
+    return data.toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    IntOutput intOutput = (IntOutput) o;
+    return Objects.equals(data, intOutput.data);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(data);
   }
 }

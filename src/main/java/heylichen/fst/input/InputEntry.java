@@ -1,4 +1,4 @@
-package heylichen.fst.serialize;
+package heylichen.fst.input;
 
 import heylichen.fst.output.Output;
 

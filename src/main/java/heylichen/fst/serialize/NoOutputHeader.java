@@ -9,6 +9,12 @@ package heylichen.fst.serialize;
  * bit   label index  final   last trans    no_address
  */
 public class NoOutputHeader extends RecordHeader {
+  public NoOutputHeader() {
+  }
+
+  public NoOutputHeader(byte header) {
+    super(header);
+  }
 
   @Override
   public int getLabelIndex() {
@@ -33,12 +39,12 @@ public class NoOutputHeader extends RecordHeader {
   }
 
   @Override
-  boolean hasOutput() {
+  public boolean hasOutput() {
     return false;
   }
 
   @Override
-  boolean hasStateOutput() {
+  public boolean hasStateOutput() {
     return false;
   }
 }

@@ -1,7 +1,5 @@
 package heylichen.fst.serialize;
 
-import heylichen.fst.output.Output;
-
 /**
  *  * one byte data layout
  *  * from address high to low
@@ -21,6 +19,30 @@ public abstract class RecordHeader {
 
   public RecordHeader(byte header) {
     this.header = header;
+  }
+
+  public static final RecordHeader newInstance(boolean needOutput, boolean needStateOutput) {
+    RecordHeader header;
+    if (!needOutput) {
+      header = new NoOutputHeader();
+    } else if (needStateOutput) {
+      header = new OutputAndStateOutputHeader();
+    } else {
+      header = new OutputHeader();
+    }
+    return header;
+  }
+
+  public static final RecordHeader newInstance(boolean needOutput, boolean needStateOutput, byte data) {
+    RecordHeader header;
+    if (!needOutput) {
+      header = new NoOutputHeader(data);
+    } else if (needStateOutput) {
+      header = new OutputAndStateOutputHeader(data);
+    } else {
+      header = new OutputHeader(data);
+    }
+    return header;
   }
 
   public abstract int getLabelIndex();
@@ -65,9 +87,9 @@ public abstract class RecordHeader {
     header = (byte) (isFinal ? (header & 0xFF | FINAL) : (header & 0xFF & ~FINAL));
   }
 
-  abstract boolean hasOutput();
+  public abstract boolean hasOutput();
 
-  abstract boolean hasStateOutput();
+  public abstract boolean hasStateOutput();
 
   void setHasOutput(boolean has) {
   }

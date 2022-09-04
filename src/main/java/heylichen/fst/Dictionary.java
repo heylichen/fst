@@ -14,7 +14,7 @@ import java.util.Objects;
 public class Dictionary<O> {
   public static final int BUCKET_COUNT = 10000;
   public static final BigInteger BUCKET_COUNT_BI = BigInteger.valueOf(BUCKET_COUNT);
-  private List<CacheEntry<O>> entryList = new ArrayList<>(BUCKET_COUNT);
+  private final List<CacheEntry<O>> entryList = new ArrayList<>(BUCKET_COUNT);
 
   public Dictionary() {
     for (int i = 0; i < BUCKET_COUNT; i++) {

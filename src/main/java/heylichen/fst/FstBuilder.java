@@ -1,9 +1,11 @@
 package heylichen.fst;
 
+import heylichen.fst.input.InputEntry;
+import heylichen.fst.input.InputIterable;
 import heylichen.fst.output.Output;
+import heylichen.fst.serialize.FstDotWriter;
+import heylichen.fst.serialize.FstSerializeWriter;
 import heylichen.fst.serialize.FstWriter;
-import heylichen.fst.serialize.InputEntry;
-import heylichen.fst.serialize.RandomAccessInput;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -13,6 +15,11 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * for build fst
+ * @author heylichen@qq.com
+ * @param <O>
+ */
 public class FstBuilder<O> {
   private FstWriter<O> fstWriter;
   private List<State<O>> tempStates;
@@ -21,12 +28,21 @@ public class FstBuilder<O> {
   private Output<O> currentOutput;
   private String previousWord;
 
-  public FstBuildResult compile(RandomAccessInput<O> input, OutputStream os, boolean output) throws IOException {
-    fstWriter = new FstWriter<>(os, output, true, input);
+  private boolean needOutput;
+
+  public FstBuildResult compile(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
+    this.needOutput = output;
+    fstWriter = new FstSerializeWriter<>(os, output, true, input);
     return buildFst(input);
   }
 
-  private FstBuildResult buildFst(RandomAccessInput<O> input) throws IOException {
+  public FstBuildResult compileDot(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
+    this.needOutput = output;
+    fstWriter = new FstDotWriter<>(os);
+    return buildFst(input);
+  }
+
+  private FstBuildResult buildFst(InputIterable<O> input) throws IOException {
     Dictionary<O> dictionary = new Dictionary<>();
     int nextStateId = 0;
     int errorInputIndex = 0;
@@ -124,7 +140,7 @@ public class FstBuilder<O> {
   }
 
   private void writeOutput(int prefixLength) {
-    if (!fstWriter.isNeedOutput()) {
+    if (!needOutput) {
       return;
     }
     for (int i = 1; i <= prefixLength; i++) {
@@ -133,11 +149,11 @@ public class FstBuilder<O> {
 
       Output<O> prevOut = previousState.getOutput(arc);
       Output<O> commonPrefix = currentOutput.getCommonPrefix(prevOut);
-      Output<O> wordSuffix = prevOut.getSuffix(commonPrefix);
+      Output<O> wordSuffix = prevOut == null ? null : prevOut.getSuffix(commonPrefix);
 
       previousState.setOutput(arc, commonPrefix);
 
-      if (!wordSuffix.empty()) {
+      if (wordSuffix != null && !wordSuffix.empty()) {
         State<O> state = tempStates.get(i);
         state.getTransitions().foreach((Character ch, Transition<O> t) -> {
           state.prependSuffixToOutput(ch, wordSuffix);
@@ -157,7 +173,7 @@ public class FstBuilder<O> {
     } else {
       State<O> stateTmp = tempStates.get(prefixLength);
       char arc = currentWord.charAt(prefixLength);
-      stateTmp.setOutput(arc,currentOutput);
+      stateTmp.setOutput(arc, currentOutput);
     }
   }
 
@@ -205,11 +221,18 @@ public class FstBuilder<O> {
     int l = 0;
     int aLen = a.length();
     int bLen = b.length();
+    char cha;
+    char chb;
     while (l < aLen && l < bLen) {
-      if (a.charAt(l) > b.charAt(l)) {
+      cha = a.charAt(l);
+      chb = b.charAt(l);
+      if (cha > chb) {
         return false;
+      } else if (cha < chb) {
+        break;
+      } else {
+        l++;
       }
-      l++;
     }
     return true;
   }
