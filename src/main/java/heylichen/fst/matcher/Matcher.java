@@ -53,9 +53,18 @@ public class Matcher<O> {
     valid = true;
   }
 
+  /**
+   * search for key, do process as needed
+   *
+   * @param string         the searching target
+   * @param outputs        is a consumer logic for found output
+   * @param prefixConsumer a BiConsumer logic for processing keys that have a common prefix with string
+   * @return
+   * @throws IOException
+   */
   public boolean match(String string,
                        Consumer<Output<O>> outputs,
-                       BiConsumer<Long, Output<O>> prefixes
+                       BiConsumer<Integer, Output<O>> prefixConsumer
   ) throws IOException {
     boolean matched = false;
     // end address of current transition
@@ -66,7 +75,7 @@ public class Matcher<O> {
     //basically each loop correspond to a transition in a state
     while (i < string.length()) {
       char ch = string.charAt(i);
-      Output<O> stateOutput = outputFactory.newInstance();
+      Output<O> stateOutput;
 
       long transitionEnd = transitionAddress.get();
       Offset p = new Offset(transitionEnd);
@@ -108,11 +117,11 @@ public class Matcher<O> {
         i++;
         if (recordHeader.isFinal()) {
           //we have a prefix
-          if (prefixes != null) {
+          if (prefixConsumer != null) {
             if (stateOutput == null || stateOutput.empty()) {
-              prefixes.accept((long) i, output);
+              prefixConsumer.accept(i, output);
             } else {
-              prefixes.accept((long) i, output.appendCopy(stateOutput));
+              prefixConsumer.accept(i, output.appendCopy(stateOutput));
             }
             matched = true;
           }
@@ -196,9 +205,10 @@ public class Matcher<O> {
           output.appendCopy(transRecord.getStateOutput());
         }
         if (atm.isMatch()) {
+          //for predictive search, if prefix is empty, found key longer than prefix
           if (StringUtils.isBlank(prefix) ||
-              prefix.length() == 1 ||
-              prefix.charAt(0) == arc) {
+              // in this case, found key equals prefix
+              (prefix.length() == 1 && prefix.charAt(0) == arc)) {
             context.accept(word, output);
           }
         }
@@ -285,7 +295,7 @@ public class Matcher<O> {
       Offset offP = new Offset(off);
       byte flag = input.readByte(offP.getAndAdd(-1));
       RecordHeader rh = RecordHeader.newInstance(needOutput, needStateOutput, flag);
-      return readArc(rh, p);
+      return readArc(rh, offP);
     };
 
     long foundIndex = binarySearchIndexForChar(0, eleCount,
@@ -347,6 +357,10 @@ public class Matcher<O> {
     return first;
   }
 
+  public VisitContext<O> prefixVisitContext(String prefix, BiConsumer<String, Output<O>> accept, Automaton automaton) {
+    return contextBuilder().withPrefix("").withAutomaton(automaton).withConsumer(accept)
+        .withPrefix(prefix).build();
+  }
 
   public VisitContext<O> noPrefixVisitContext(BiConsumer<String, Output<O>> accept, Automaton automaton) {
     return contextBuilder().withPrefix("").withAutomaton(automaton).withConsumer(accept).build();

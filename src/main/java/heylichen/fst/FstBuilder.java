@@ -17,8 +17,9 @@ import java.util.List;
 
 /**
  * for build fst
- * @author heylichen@qq.com
+ *
  * @param <O>
+ * @author heylichen@qq.com
  */
 public class FstBuilder<O> {
   private FstWriter<O> fstWriter;
@@ -30,19 +31,19 @@ public class FstBuilder<O> {
 
   private boolean needOutput;
 
-  public FstBuildResult compile(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
+  public void compile(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
     this.needOutput = output;
     fstWriter = new FstSerializeWriter<>(os, output, true, input);
-    return buildFst(input);
+    buildFst(input);
   }
 
-  public FstBuildResult compileDot(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
+  public void compileDot(InputIterable<O> input, OutputStream os, boolean output) throws IOException {
     this.needOutput = output;
     fstWriter = new FstDotWriter<>(os);
-    return buildFst(input);
+    buildFst(input);
   }
 
-  private FstBuildResult buildFst(InputIterable<O> input) throws IOException {
+  private void buildFst(InputIterable<O> input) throws IOException {
     Dictionary<O> dictionary = new Dictionary<>();
     int nextStateId = 0;
     int errorInputIndex = 0;
@@ -57,20 +58,17 @@ public class FstBuilder<O> {
       currentWord = inputEntry.getKey();
       currentOutput = inputEntry.getValue();
       if (StringUtils.isBlank(currentWord)) {
-        result.setCode(ResultCode.EMPTY_KEY);
-        break;
+        throw new IllegalArgumentException("empty key is not allowed!");
       }
 
       int prefixLength = getCommonPrefixLength(previousWord, currentWord);
       boolean inOrder = inOrder(previousWord, currentWord);
       if (!inOrder) {
-        result.setCode(ResultCode.UNSORTED_KEY);
-        break;
+        throw new IllegalArgumentException("keys must be sorted! prev=" + previousWord + ", cur=" + currentWord);
       }
 
       if (StringUtils.equals(previousWord, currentWord)) {
-        result.setCode(ResultCode.DUPLICATE_KEY);
-        break;
+        throw new IllegalArgumentException("duplicate keys not allowed! duplicate key=" + currentWord);
       }
 
       // We minimize the states from the suffix of the previous word
@@ -115,7 +113,7 @@ public class FstBuilder<O> {
     }
 
     if (!result.isSuccess()) {
-      return result;
+      return;
     }
 
     // Here we are minimizing the states of the last word
@@ -135,8 +133,6 @@ public class FstBuilder<O> {
     }
 
     fstWriter.close();
-    result.setCode(ResultCode.SUCCESS);
-    return result;
   }
 
   private void writeOutput(int prefixLength) {

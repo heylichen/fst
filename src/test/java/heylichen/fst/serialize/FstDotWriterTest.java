@@ -22,6 +22,12 @@ public class FstDotWriterTest {
     printDot(input);
   }
 
+  @Test
+  public void testDot3()  throws IOException  {
+    InputIterable<Integer> input = FstTestInputFactory.newInputForPredictive();
+    printDot(input);
+  }
+
   private void printDot(InputIterable<Integer> input) throws IOException {
     FstBuilder<Integer> fstBuilder = new FstBuilder<>();
     ByteArrayOutputStream os = new ByteArrayOutputStream();

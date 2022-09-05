@@ -31,6 +31,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
   //the arcs of all transitions of all states
   private List<Long> arcAddressTable;
 
+  //if transition count>=8, use jump table for better search performance
+  public static final int NEED_JUMP_TABLE_TRANS_COUNT = 8;
+
   public FstSerializeWriter(OutputStream os, boolean needOutput, boolean needStateOutput,
                             InputIterable<O> input) {
     this.os = os;
@@ -68,23 +71,6 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     }
   }
 
-  public void write(State<O> state, char previousArc) throws IOException {
-    Transitions<O> transitions = state.getTransitions();
-    int transitionCount = transitions == null ? 0 : transitions.size();
-    long[] jumpTable = new long[transitionCount];
-
-    boolean needJumpTable = transitionCount >= 8;
-    List<Integer> arcIndexes = getArcAccessIndexes(previousArc, transitions);
-    reverse(arcIndexes);
-    for (Integer arcIndex : arcIndexes) {
-      writeTransitionRecord(arcIndex, state, needJumpTable, jumpTable);
-    }
-
-    if (transitions != null && !transitions.empty()) {
-      stateRecordIndexMap.put(state.getId(), arcAddressTable.size() - 1);
-    }
-  }
-
   public void close() throws IOException {
     if (arcAddressTable.isEmpty()) {
       return;
@@ -94,19 +80,33 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     fstHeader.write(os);
   }
 
-  private void writeTransitionRecord(Integer arcIndex, State<O> state,
-                                     boolean needJumpTable,
-                                     long[] jumpTable) throws IOException {
+  public void write(State<O> state, char previousArc) throws IOException {
     Transitions<O> transitions = state.getTransitions();
-    CharTransition<O> charTransition = transitions.get(arcIndex);
+    int transitionCount = transitions == null ? 0 : transitions.size();
+    List<Integer> arcIndexes = getArcAccessIndexes(previousArc, transitions);
+
+    StateWriteContext<O> context = new StateWriteContext<>(state, arcIndexes);
+    // written transitions are in reversed order
+    // first written transition is the last transition
+    for (int i = arcIndexes.size() - 1; i >= 0; i--) {
+      writeTransitionRecord(i, context);
+    }
+
+    if (transitionCount > 0) {
+      stateRecordIndexMap.put(state.getId(), arcAddressTable.size() - 1);
+    }
+  }
+
+  private void writeTransitionRecord(int i, StateWriteContext<O> context) throws IOException {
+    CharTransition<O> charTransition = context.getArcTransition(i);
     Transition<O> transition = charTransition.getTransition();
 
     Integer addressIndex = stateRecordIndexMap.get(transition.getId());
     boolean hasAddress = addressIndex != null;
-    boolean lastTransition = arcIndex == transitions.size() - 1;
+    boolean lastTransition = i == context.getTransitionCount() - 1;
     //noAddress means this state is adjacent to previous state, no need to write address to output stream
     boolean noAddress = lastTransition && hasAddress && addressIndex == arcAddressTable.size() - 1;
-    boolean generateJumpTable = arcIndex == 0 && needJumpTable;
+    boolean generateJumpTable = i == 0 && context.needJumpTable();
 
     FstRecord<O> record = new FstRecord<>(needOutput, needStateOutput);
     RecordHeader recHeader = record.getHeader();
@@ -163,14 +163,48 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     address += byteSize;
 
     record.write(os);
-    if (needJumpTable) {
-      jumpTable[arcIndex] = accessibleAddress;
-    }
+    context.setJumpTableAt(i, accessibleAddress);
 
     if (generateJumpTable) {
-      int jumpTableByteSize = writeJumpTable(jumpTable, accessibleAddress, recHeader);
+      int jumpTableByteSize = writeJumpTable(context.jumpTable, accessibleAddress, recHeader);
       address += jumpTableByteSize;
       addAddressTable(arcAddressTable.size() - 1, jumpTableByteSize);
+    }
+  }
+
+  /**
+   * absorb info in write method, make writeTransitionRecord parameters less
+   *
+   * @param <O>
+   */
+  private static class StateWriteContext<O> {
+    private final Transitions<O> transitions;
+    @Getter
+    private final int transitionCount;
+    private final long[] jumpTable;
+    // element is index in transitions
+    private final List<Integer> arcIndexes;
+
+    public StateWriteContext(State<O> state, List<Integer> arcIndexes) {
+      transitions = state.getTransitions();
+      transitionCount = transitions == null ? 0 : transitions.size();
+      jumpTable = needJumpTable() ? new long[transitionCount] : null;
+      this.arcIndexes = arcIndexes;
+    }
+
+    public CharTransition<O> getArcTransition(int i) {
+      int arcIndex = arcIndexes.get(i);
+      return transitions.get(arcIndex);
+    }
+
+    public void setJumpTableAt(int i, long v) {
+      if (jumpTable != null) {
+        jumpTable[i] = v;
+      }
+    }
+
+    public boolean needJumpTable() {
+      return transitionCount >= NEED_JUMP_TABLE_TRANS_COUNT;
     }
   }
 

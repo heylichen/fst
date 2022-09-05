@@ -29,16 +29,30 @@ public class FstTestInputFactory {
 
   public static InputIterable<Integer> newInputForEditDistance() {
     List<InputEntry<Integer>> list = Arrays.asList(
-        newEntry("their", 120),
-        newEntry("thir", 130),
-        newEntry("tier", 140),
-        newEntry("thief", 150),
-        newEntry("trier", 160)
+        newEntry("xoof", 120),
+        newEntry("1xoof", 130),
+        newEntry("11xoof", 140),
+        newEntry("oof", 150),
+        newEntry("of", 160),
+        newEntry("f", 89)
     );
     list.sort(Comparator.comparing(InputEntry::getKey));
-
     return newInput(list);
   }
+
+  public static InputIterable<Integer> newInputForPredictive() {
+    List<InputEntry<Integer>> list = Arrays.asList(
+        newEntry("predic", 153472),
+        newEntry("predicti", 153473),
+        newEntry("predictiv", 153474),
+        newEntry("predictive", 153474),
+        newEntry("predictively", 153475),
+        newEntry("predictiveness", 153476)
+    );
+    list.sort(Comparator.comparing(InputEntry::getKey));
+    return newInput(list);
+  }
+
 
   private static InputEntry<Integer> newEntry(String key, Integer v) {
     return new SimpleInputEntry<>(key, new IntOutput(v));

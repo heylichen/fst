@@ -5,17 +5,17 @@ public class DummyAutomaton implements Automaton {
 
   @Override
   public void step(char ch) {
-
+    //no op
   }
 
   @Override
   public boolean isMatch() {
-    return false;
+    return true;
   }
 
   @Override
   public boolean canMatch() {
-    return false;
+    return true;
   }
 
   @Override
