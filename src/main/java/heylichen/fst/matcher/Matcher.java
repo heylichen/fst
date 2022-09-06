@@ -8,11 +8,11 @@ import heylichen.fst.serialize.RecordHeader;
 import heylichen.fst.serialize.codec.LenInt;
 import heylichen.fst.serialize.codec.VBCodec;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -206,7 +206,7 @@ public class Matcher<O> {
         }
         if (atm.isMatch()) {
           //for predictive search, if prefix is empty, found key longer than prefix
-          if (StringUtils.isBlank(prefix) ||
+          if (StringUtils.isEmpty(prefix) ||
               // in this case, found key equals prefix
               (prefix.length() == 1 && prefix.charAt(0) == arc)) {
             context.accept(word, output);
@@ -219,11 +219,11 @@ public class Matcher<O> {
       }
 
       if (nextAddress > 0) {
-        if (StringUtils.isBlank(prefix) || prefix.charAt(0) == arc) {
+        if (StringUtils.isEmpty(prefix) || prefix.charAt(0) == arc) {
           VisitContext<O> subContext = context.copy();
           subContext.setPartialKey(word);
           subContext.setPartialOutput(output);
-          subContext.setPrefix(StringUtils.isBlank(prefix) ? prefix : prefix.substring(1));
+          subContext.setPrefix(StringUtils.isEmpty(prefix) ? prefix : prefix.substring(1));
           // need to remember the state stepped so far in Automaton
           subContext.setAutomaton(atm);
           depthFirstVisit(nextAddress, subContext);
@@ -355,6 +355,65 @@ public class Matcher<O> {
       }
     }
     return first;
+  }
+
+  public void searchByEditDistance(String key, int maxEdits, BiConsumer<String, Output<O>> biConsumer) {
+    if (StringUtils.isEmpty(key)) {
+      return;
+    }
+
+    RowLevenshteinAutomata la = new RowLevenshteinAutomata(key, maxEdits);
+    Set<String> keys = new HashSet<>();
+    VisitContext<O> context = noPrefixVisitContext(biConsumer, la);
+    depthFirstVisit(context);
+  }
+
+  public static final int MIN_EDITS = 2;
+  public static final int MAX_EDITS = 6;
+  public static final JaroWinklerSimilarity JW = new JaroWinklerSimilarity();
+
+  public List<Suggestion<O>> suggestSearch(String key) {
+    List<Suggestion<O>> list = Collections.emptyList();
+    for (int i = MIN_EDITS; i < MAX_EDITS; i++) {
+      List<Suggestion<O>> results = searchByEditDistance(key, i);
+      if (results.size() == 1) {
+        list = results;
+        break;
+      } else if (results.size() > 1) {
+        score(key, results);
+        list = results;
+        break;
+      }
+    }
+    return list;
+  }
+
+  private void score(String key, List<Suggestion<O>> results) {
+    for (Suggestion<O> result : results) {
+      String word = result.getKey();
+      if (word.equals(key)) {
+        result.setScore(0);
+        continue;
+      }
+      double simL = getLevenshteinDistanceSimilarity(key, word);
+      double simJ = JW.getJaroWinklerSim(key, word);
+      double similarity = simL * simJ;
+      result.setScore(similarity);
+    }
+    results.sort(Comparator.comparing(Suggestion<O>::getScore).reversed());
+  }
+
+  private double getLevenshteinDistanceSimilarity(String a, String b) {
+    double ld = RowLevenshteinAutomata.calculateEditDistance(a, b);
+    return 1.0 - (ld / Math.max(StringUtils.length(a), StringUtils.length(b)));
+  }
+
+  private List<Suggestion<O>> searchByEditDistance(String key, int maxEdits) {
+    List<Suggestion<O>> results = new ArrayList<>();
+    searchByEditDistance(key, maxEdits, (k, o) -> {
+      results.add(new Suggestion<>(k, o.getData()));
+    });
+    return results;
   }
 
   public VisitContext<O> prefixVisitContext(String prefix, BiConsumer<String, Output<O>> accept, Automaton automaton) {

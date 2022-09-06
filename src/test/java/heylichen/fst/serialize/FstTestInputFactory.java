@@ -53,6 +53,20 @@ public class FstTestInputFactory {
     return newInput(list);
   }
 
+  public static InputIterable<Integer> newInputForSuggest() {
+    List<InputEntry<Integer>> list = Arrays.asList(
+        newEntry("their", 153472),
+        newEntry("thir", 153473),
+        newEntry("tier", 153474),
+        newEntry("thief", 153474),
+        newEntry("trier", 153475),
+        newEntry("predic", 153472),
+        newEntry("predictiveness", 153476)
+    );
+    list.sort(Comparator.comparing(InputEntry::getKey));
+    return newInput(list);
+  }
+
 
   private static InputEntry<Integer> newEntry(String key, Integer v) {
     return new SimpleInputEntry<>(key, new IntOutput(v));

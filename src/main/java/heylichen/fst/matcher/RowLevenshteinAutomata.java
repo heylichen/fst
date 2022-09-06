@@ -36,6 +36,21 @@ public class RowLevenshteinAutomata implements Automaton {
     this.state = newState;
   }
 
+
+  public static int calculateEditDistance(String a, String b) {
+    if (StringUtils.isEmpty(b) ) {
+      return StringUtils.length(a);
+    }
+    if (StringUtils.isEmpty(a) ) {
+      return StringUtils.length(b);
+    }
+    RowLevenshteinAutomata la = new RowLevenshteinAutomata(a, 0);
+    for (int i = 0; i < b.length(); i++) {
+      la.step(b.charAt(i));
+    }
+    return la.state.get(b.length());
+  }
+
   public boolean isMatch() {
     return state.get(state.size() - 1) <= maxEdits;
   }

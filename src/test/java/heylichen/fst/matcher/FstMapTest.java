@@ -101,6 +101,13 @@ public class FstMapTest {
     Assert.assertEquals(expected, foundKeys);
   }
 
+  @Test
+  public void testSuggest() throws IOException {
+    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForSuggest());
+    List<Suggestion<Integer>> list = map.suggestSearch("thier");
+    System.out.println();
+  }
+
   private FstMap<Integer> compileIntMap(InputIterable<Integer> input) throws IOException {
     return compileMap(input, new IntOutput(0));
   }

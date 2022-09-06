@@ -69,17 +69,15 @@ public class FstMap<O> {
    * @return
    */
   public Set<String> searchByEditDistance(String key, int maxEdits) {
-    if (StringUtils.isBlank(key)) {
-      return Collections.emptySet();
-    }
-
-    RowLevenshteinAutomata la = new RowLevenshteinAutomata(key, maxEdits);
     Set<String> keys = new HashSet<>();
-    VisitContext<O> context = matcher.noPrefixVisitContext((k, o) -> {
+    matcher.searchByEditDistance(key,maxEdits,(k, o) -> {
       keys.add(k);
-    }, la);
-    matcher.depthFirstVisit(context);
+    });
     return keys;
+  }
+
+  public List<Suggestion<O>> suggestSearch(String key) {
+    return matcher.suggestSearch(key);
   }
 
   public void enumerate(BiConsumer<String, Output<O>> consumer) {
