@@ -284,23 +284,6 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     return arcIndexes;
   }
 
-  private void reverse(List<Integer> indexes) {
-    if (indexes == null || indexes.isEmpty()) {
-      return;
-    }
-    int len = indexes.size() / 2;
-    int last = indexes.size() - 1;
-    for (int i = 0; i < len; i++) {
-      swap(indexes, i, last - i);
-    }
-  }
-
-  private <T> void swap(List<T> list, int a, int b) {
-    T tmp = list.get(a);
-    list.set(a, list.get(b));
-    list.set(b, tmp);
-  }
-
   private List<Integer> genArcIndexes(int transitionCount) {
     List<Integer> arcIndexes = new ArrayList<>(transitionCount);
     for (int i = 0; i < transitionCount; i++) {
