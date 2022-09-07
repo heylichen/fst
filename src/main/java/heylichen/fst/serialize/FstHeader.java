@@ -29,7 +29,7 @@ public class FstHeader {
                    Map<Character, Integer> charToIndexMap
   ) {
     this.startAddress = startAddress;
-    this.needOutput = outputType != OutputType.NONE;
+    this.needOutput = outputType != null && outputType != OutputType.NONE;
     this.needStateOutput = needStateOutput;
     flags = new Flags();
     flags.setOutputType(outputType);

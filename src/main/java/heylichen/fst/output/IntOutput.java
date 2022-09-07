@@ -68,12 +68,15 @@ public class IntOutput implements Output<Integer>, OutputFactory<Integer> {
 
   @Override
   public void append(Output<Integer> v) {
-    data += v.getData();
+    if (v != null) {
+      data += v.getData();
+    }
   }
 
   @Override
-  public Output<Integer>  appendCopy(Output<Integer> v) {
-    return new IntOutput(data + v.getData());
+  public Output<Integer> appendCopy(Output<Integer> v) {
+    Integer vd = v == null ? 0 : v.getData();
+    return new IntOutput(data + vd);
   }
 
   @Override

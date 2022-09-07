@@ -27,10 +27,11 @@ public class Matcher<O> {
   private final RandomAccessInput input;
   @Getter
   private final FstHeader fstHeader;
-  private final boolean needOutput;
-  private final boolean needStateOutput;
-  @Getter
-  private final boolean valid;
+
+  // for suggestion search
+  private static final int MIN_EDITS = 2;
+  private static final int MAX_EDITS = 6;
+  private static final JaroWinklerSimilarity JW = new JaroWinklerSimilarity();
 
   public Matcher(OutputFactory<O> outputFactory, RandomAccessInput input) throws IOException {
     this.outputFactory = outputFactory;
@@ -38,39 +39,33 @@ public class Matcher<O> {
 
     fstHeader = new FstHeader();
     boolean readHeadSuccess = fstHeader.read(input, input.getSize());
-    needOutput = fstHeader.isNeedOutput();
-    needStateOutput = fstHeader.isNeedStateOutput();
 
     if (!readHeadSuccess) {
-      valid = false;
-      return;
+      throw new IllegalArgumentException("invalid input, failed to read fst header!");
     }
-    if (fstHeader.getFlagOutputType() != outputFactory.getOutputType()) {
-      valid = false;
-      return;
+    if (needOutput() && (outputFactory == null || fstHeader.getFlagOutputType() != outputFactory.getOutputType())) {
+      throw new IllegalArgumentException("invalid input: outputFactory output type does not match fst header!");
     }
-
-    valid = true;
   }
 
   /**
    * search for key, do process as needed
    *
    * @param string         the searching target
-   * @param outputs        is a consumer logic for found output
+   * @param outputConsumer        is a consumer logic for found output
    * @param prefixConsumer a BiConsumer logic for processing keys that have a common prefix with string
    * @return
    * @throws IOException
    */
   public boolean match(String string,
-                       Consumer<Output<O>> outputs,
+                       Consumer<Output<O>> outputConsumer,
                        BiConsumer<Integer, Output<O>> prefixConsumer
   ) throws IOException {
     boolean matched = false;
     // end address of current transition
 
     Offset transitionAddress = new Offset(fstHeader.getStartAddress());
-    Output<O> output = outputFactory.newInstance();
+    Output<O> output = newOutput();
     int i = 0;
     //basically each loop correspond to a transition in a state
     while (i < string.length()) {
@@ -81,7 +76,7 @@ public class Matcher<O> {
       Offset p = new Offset(transitionEnd);
 
       byte recordHeaderByte = input.readByte(p.getAndAdd(-1));
-      RecordHeader recordHeader = RecordHeader.newInstance(needOutput, needStateOutput, recordHeaderByte);
+      RecordHeader recordHeader = newRecordHeader(recordHeaderByte);
 
       if (recordHeader.hasJumpTable()) {
         boolean found = lookupInJumpTable(transitionAddress, p, recordHeader.getJumpTableElementSize(), ch);
@@ -113,7 +108,9 @@ public class Matcher<O> {
 
       if (ch == tranRecord.getLabel()) {
         // if found char in transitions of current state, will go to next state
-        output.append(tranRecord.getOutput());
+        if (needOutput()) {
+          output.append(tranRecord.getOutput());
+        }
         i++;
         if (recordHeader.isFinal()) {
           //we have a prefix
@@ -127,11 +124,11 @@ public class Matcher<O> {
           }
           if (i == string.length()) {
             //we have a match string
-            if (outputs != null) {
+            if (outputConsumer != null) {
               if (stateOutput == null || stateOutput.empty()) {
-                outputs.accept(output);
+                outputConsumer.accept(output);
               } else {
-                outputs.accept(output.appendCopy(stateOutput));
+                outputConsumer.accept(output.appendCopy(stateOutput));
               }
               matched = true;
               break;
@@ -165,7 +162,7 @@ public class Matcher<O> {
       Offset p = new Offset(end);
 
       byte recordHeaderByte = input.readByte(p.getAndAdd(-1));
-      RecordHeader recordHeader = RecordHeader.newInstance(needOutput, needStateOutput, recordHeaderByte);
+      RecordHeader recordHeader = newRecordHeader(recordHeaderByte);
 
       if (recordHeader.hasJumpTable()) {
         // just move to transition record address, pass jumpTable
@@ -196,7 +193,7 @@ public class Matcher<O> {
       atm.step(arc);
 
       String word = context.getPartialKey() + arc;
-      Output<O> output = context.getPartialOutput().appendCopy(transRecord.getOutput());
+      Output<O> output = needOutput() ? context.getPartialOutput().appendCopy(transRecord.getOutput()) : null;
 
       String prefix = context.getPrefix();
       if (recordHeader.isFinal()) {
@@ -239,7 +236,6 @@ public class Matcher<O> {
     }
   }
 
-
   /**
    * read current transition record format. left to right, from low address to high address.
    * field in [] is optional.
@@ -263,7 +259,7 @@ public class Matcher<O> {
       p.subtract(lenInt.getLen());
     }
 
-    Output<O> outputSuffix = outputFactory.newInstance();
+    Output<O> outputSuffix = null;
     if (recordHeader.hasOutput()) {
       Pair<Output<O>, Integer> pair = outputFactory.readByteValue(input, p.get());
       outputSuffix = pair.getKey();
@@ -294,7 +290,7 @@ public class Matcher<O> {
       long off = arcsBaseAddress - lookupJumpTable(jumpTableStart, index.intValue(), jumpTableEleSize);
       Offset offP = new Offset(off);
       byte flag = input.readByte(offP.getAndAdd(-1));
-      RecordHeader rh = RecordHeader.newInstance(needOutput, needStateOutput, flag);
+      RecordHeader rh = newRecordHeader(flag);
       return readArc(rh, offP);
     };
 
@@ -368,9 +364,6 @@ public class Matcher<O> {
     depthFirstVisit(context);
   }
 
-  public static final int MIN_EDITS = 2;
-  public static final int MAX_EDITS = 6;
-  public static final JaroWinklerSimilarity JW = new JaroWinklerSimilarity();
 
   public List<Suggestion<O>> suggestSearch(String key) {
     List<Suggestion<O>> list = Collections.emptyList();
@@ -411,7 +404,8 @@ public class Matcher<O> {
   private List<Suggestion<O>> searchByEditDistance(String key, int maxEdits) {
     List<Suggestion<O>> results = new ArrayList<>();
     searchByEditDistance(key, maxEdits, (k, o) -> {
-      results.add(new Suggestion<>(k, o.getData()));
+      O out = o == null ? null : o.getData();
+      results.add(new Suggestion<>(k, out));
     });
     return results;
   }
@@ -427,8 +421,25 @@ public class Matcher<O> {
 
   private VisitContext.VisitContextBuilder<O> contextBuilder() {
     VisitContext.VisitContextBuilder<O> builder = VisitContext.builder();
-    builder.withPartialOutput(outputFactory.newInstance())
+    builder.withPartialOutput(newOutput())
         .withPartialKey("");
     return builder;
+  }
+
+  // -------------------------- tool methods
+  private boolean needOutput() {
+    return fstHeader.isNeedOutput();
+  }
+
+  private boolean needStateOutput() {
+    return fstHeader.isNeedStateOutput();
+  }
+
+  private RecordHeader newRecordHeader(byte recordHeaderByte) {
+    return RecordHeader.newInstance(needOutput(), needStateOutput(), recordHeaderByte);
+  }
+
+  private Output<O> newOutput() {
+    return needOutput() ? outputFactory.newInstance() : null;
   }
 }

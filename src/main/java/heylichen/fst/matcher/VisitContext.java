@@ -8,7 +8,7 @@ import java.util.function.BiConsumer;
 
 @Setter
 @Getter
-public class VisitContext<O> {
+class VisitContext<O> {
   private String partialKey;
   private Output<O> partialOutput;
   private BiConsumer<String, Output<O>> consumer;

@@ -46,7 +46,7 @@ public class JaroWinklerSimilarity {
   public double getJaroWinklerSim(String a, String b) {
     double simJ = getJaroSim(a, b);
     int l = Math.min(4, getCommonPrefixLen(a, b));
-    return simJ + l * P * (1 - simJ);
+    return simJ + l * p * (1 - simJ);
   }
 
   private int getCommonPrefixLen(String a, String b) {

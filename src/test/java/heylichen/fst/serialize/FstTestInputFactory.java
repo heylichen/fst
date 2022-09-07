@@ -1,6 +1,6 @@
 package heylichen.fst.serialize;
 
-import heylichen.fst.input.DataInputIterable;
+import heylichen.fst.input.IntDataInputIterable;
 import heylichen.fst.input.InputEntry;
 import heylichen.fst.input.InputIterable;
 import heylichen.fst.input.SimpleInputEntry;
@@ -80,6 +80,6 @@ public class FstTestInputFactory {
   }
 
   private static InputIterable<Integer> newInput(List<InputEntry<Integer>> list) {
-    return new DataInputIterable<>(list);
+    return new IntDataInputIterable(list);
   }
 }

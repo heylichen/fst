@@ -1,10 +1,10 @@
 package heylichen.fst.serialize;
 
 /**
- *  * one byte data layout
- *  * from address high to low
- *  * bits   5             1          1            1
- *  * bit  custom     final   last trans    no_address
+ * * one byte data layout
+ * * from address high to low
+ * * bits   5             1          1            1
+ * * bit  custom     final   last trans    no_address
  */
 public abstract class RecordHeader {
   public static final int NO_ADDRESS = 0b0000_0001;
@@ -21,7 +21,7 @@ public abstract class RecordHeader {
     this.header = header;
   }
 
-  public static final RecordHeader newInstance(boolean needOutput, boolean needStateOutput) {
+  public static RecordHeader newInstance(boolean needOutput, boolean needStateOutput) {
     RecordHeader header;
     if (!needOutput) {
       header = new NoOutputHeader();
@@ -33,7 +33,7 @@ public abstract class RecordHeader {
     return header;
   }
 
-  public static final RecordHeader newInstance(boolean needOutput, boolean needStateOutput, byte data) {
+  public static RecordHeader newInstance(boolean needOutput, boolean needStateOutput, byte data) {
     RecordHeader header;
     if (!needOutput) {
       header = new NoOutputHeader(data);

@@ -4,15 +4,15 @@ import heylichen.fst.output.OutputType;
 
 import java.util.List;
 
-public class DataInputIterable<O> implements InputIterable<O> {
-  private List<InputEntry<O>> data;
+public class IntDataInputIterable implements InputIterable<Integer> {
+  private List<InputEntry<Integer>> data;
 
-  public DataInputIterable(List<InputEntry<O>> data) {
+  public IntDataInputIterable(List<InputEntry<Integer>> data) {
     this.data = data;
   }
 
   @Override
-  public Iterable<InputEntry<O>> getIterable() {
+  public Iterable<InputEntry<Integer>> getIterable() {
     return data;
   }
 

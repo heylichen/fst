@@ -1,13 +1,8 @@
 package heylichen.fst.matcher;
 
 import heylichen.fst.FstBuilder;
-import heylichen.fst.input.InputEntry;
 import heylichen.fst.input.InputIterable;
-import heylichen.fst.output.IntOutput;
-import heylichen.fst.output.Output;
-import heylichen.fst.output.OutputFactory;
 import heylichen.fst.serialize.FstTestInputFactory;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -16,38 +11,12 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-public class FstMapTest {
-
-  @Test
-  public void testFstWrite() throws IOException {
-    InputIterable<Integer> input = FstTestInputFactory.newSingleKey();
-    compileIntMap(input);
-  }
-
-  @Test
-  public void testMapGetSingle() throws IOException {
-    InputIterable<Integer> input = FstTestInputFactory.newSingleKey();
-    FstMap<Integer> map = compileIntMap(input);
-    Integer out = map.get("say");
-    Assert.assertEquals(31, out.intValue());
-  }
-
-  @Test
-  public void testMapGet() throws IOException {
-    InputIterable<Integer> input = FstTestInputFactory.newMultipleKeyWithJumpTable();
-    FstMap<Integer> map = compileIntMap(input);
-
-    for (InputEntry<Integer> entry : input.getIterable()) {
-      Integer out = map.get(entry.getKey());
-      Assert.assertEquals("key=" + entry.getKey() + " get error", entry.getValue().getData(), out);
-    }
-  }
+public class FstSetTest {
 
   @Test
   public void searchByEditDistance() throws IOException {
-    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForEditDistance());
+    FstSet map = compileSet(FstTestInputFactory.newInputForEditDistance());
     Set<String> found = map.searchByEditDistance("woof", 2);
     Set<String> expected = new HashSet<>();
     expected.add("1xoof");
@@ -59,9 +28,9 @@ public class FstMapTest {
 
   @Test
   public void testEnumerate() throws IOException {
-    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForEditDistance());
+    FstSet map = compileSet(FstTestInputFactory.newInputForEditDistance());
     Set<String> found = new HashSet<>();
-    map.enumerate((k, o) -> found.add(k));
+    map.enumerate((k ) -> found.add(k));
 
     Set<String> expected = new HashSet<>();
     expected.add("1xoof");
@@ -75,10 +44,10 @@ public class FstMapTest {
 
   @Test
   public void testCommonPrefixSearch() throws IOException {
-    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForPredictive());
+    FstSet map = compileSet(FstTestInputFactory.newInputForPredictive());
     Set<String> found = new HashSet<>();
     String string = "predictiv";
-    map.commonPrefixSearch(string, (k, o) -> found.add(string.substring(0, k)));
+    map.commonPrefixSearch(string, (k ) -> found.add(string.substring(0, k)));
 
     Set<String> expected = new HashSet<>();
     expected.add("predictiv");
@@ -89,9 +58,9 @@ public class FstMapTest {
 
   @Test
   public void testPredictive() throws IOException {
-    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForPredictive());
-    List<Pair<String, Output<Integer>>> list = map.predictiveSearch("predictiv");
-    Set<String> foundKeys = list.stream().map(Pair::getKey).collect(Collectors.toSet());
+    FstSet map = compileSet(FstTestInputFactory.newInputForPredictive());
+    List<String> list = map.predictiveSearch("predictiv");
+    Set<String> foundKeys = new HashSet<>(list);
 
     Set<String> expected = new HashSet<>();
     expected.add("predictiv");
@@ -103,22 +72,18 @@ public class FstMapTest {
 
   @Test
   public void testSuggest() throws IOException {
-    FstMap<Integer> map = compileIntMap(FstTestInputFactory.newInputForSuggest());
-    List<Suggestion<Integer>> list = map.suggestSearch("thier");
+    FstSet map = compileSet(FstTestInputFactory.newInputForSuggest());
+    List<Suggestion<Object>> list = map.suggestSearch("thier");
     Assert.assertEquals(5, list.size());
   }
 
-  private FstMap<Integer> compileIntMap(InputIterable<Integer> input) throws IOException {
-    return compileMap(input, new IntOutput(0));
-  }
-
-  private <O> FstMap<O> compileMap(InputIterable<O> input, OutputFactory<O> factory) throws IOException {
+  private <T extends Object> FstSet compileSet(InputIterable<T> input) throws IOException {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
-    FstBuilder<O> fstBuilder = new FstBuilder<>();
-    fstBuilder.compile(input, os, true,true);
+    FstBuilder<T> fstBuilder = new FstBuilder<>();
+    fstBuilder.compile(input, os, false,false);
 
     RandomAccessInput di = new ByteArrayInput(os.toByteArray());
-    return new FstMap<>(factory, di);
+    return new FstSet(di);
   }
 
   @Test

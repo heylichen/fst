@@ -34,7 +34,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
   //if transition count>=8, use jump table for better search performance
   public static final int NEED_JUMP_TABLE_TRANS_COUNT = 8;
 
-  public FstSerializeWriter(OutputStream os, boolean needOutput, boolean needStateOutput,
+  public FstSerializeWriter(OutputStream os,
+                            boolean needOutput,
+                            boolean needStateOutput,
                             InputIterable<O> input) {
     this.os = os;
     this.needOutput = needOutput;
@@ -42,7 +44,7 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     initCharIndexTable(input);
     stateRecordIndexMap = new HashMap<>();
     arcAddressTable = new ArrayList<>();
-    this.outputType = input.getOutputType();
+    this.outputType = needOutput ? input.getOutputType() : OutputType.NONE;
   }
 
 

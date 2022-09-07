@@ -3,19 +3,25 @@ package heylichen.fst.matcher;
 import heylichen.fst.output.IntOutput;
 import heylichen.fst.output.Output;
 import heylichen.fst.output.OutputFactory;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 public class FstMap<O> {
-  private Matcher<O> matcher;
+  private final Matcher<O> matcher;
 
   public FstMap(OutputFactory<O> outputFactory, RandomAccessInput randomAccessInput) throws IOException {
     matcher = new Matcher<>(outputFactory, randomAccessInput);
+  }
+
+  public boolean contains(String key) throws IOException {
+    return matcher.match(key,null, null);
   }
 
   /**
