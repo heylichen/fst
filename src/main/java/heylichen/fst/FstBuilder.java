@@ -52,7 +52,6 @@ public class FstBuilder<O> {
     tempStates = new ArrayList<>();
     previousWord = null;
     tempStates.add(new State<>(nextStateId++));
-    FstBuildResult result = new FstBuildResult(ResultCode.SUCCESS);
 
     for (InputEntry<O> inputEntry : input.getIterable()) {
       currentWord = inputEntry.getKey();
@@ -110,10 +109,6 @@ public class FstBuilder<O> {
 
       writeOutput(prefixLength);
       previousWord = currentWord;
-    }
-
-    if (!result.isSuccess()) {
-      return;
     }
 
     // Here we are minimizing the states of the last word
@@ -215,13 +210,9 @@ public class FstBuilder<O> {
       return false;
     }
     int l = 0;
-    int aLen = a.length();
-    int bLen = b.length();
-    char cha;
-    char chb;
-    while (l < aLen && l < bLen) {
-      cha = a.charAt(l);
-      chb = b.charAt(l);
+    while (l < a.length() && l < b.length()) {
+      char cha = a.charAt(l);
+      char chb = b.charAt(l);
       if (cha > chb) {
         return false;
       } else if (cha < chb) {
