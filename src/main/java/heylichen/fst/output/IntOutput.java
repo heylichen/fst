@@ -33,6 +33,9 @@ public class IntOutput implements Output<Integer>, OutputFactory<Integer> {
 
   @Override
   public Output<Integer> getSuffix(Output<Integer> prefix) {
+    if (prefix == null) {
+      return new IntOutput(data - prefix.getData());
+    }
     return new IntOutput(data - prefix.getData());
   }
 

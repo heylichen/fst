@@ -12,6 +12,7 @@ import lombok.Getter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Getter
@@ -20,6 +21,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
   private final boolean needOutput;
   private final boolean needStateOutput;
   private final OutputType outputType;
+  //dump serialized layout
+  private final boolean dump;
+  private final DumpTableStringBuilder dumpBuilder;
   private Map<Character, Integer> charIndexMap;
 
   private Map<Character, Counter> charCountMap;
@@ -33,11 +37,22 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
 
   //if transition count>=8, use jump table for better search performance
   public static final int NEED_JUMP_TABLE_TRANS_COUNT = 8;
+  public static final char NEW_LINE = '\n';
+  public static final char TAB = '\t';
+  public static final char SPACE = ' ';
 
   public FstSerializeWriter(OutputStream os,
                             boolean needOutput,
                             boolean needStateOutput,
-                            InputIterable<O> input) {
+                            InputIterable<O> input) throws IOException {
+    this(os, needOutput, needStateOutput, input, false);
+  }
+
+  public FstSerializeWriter(OutputStream os,
+                            boolean needOutput,
+                            boolean needStateOutput,
+                            InputIterable<O> input,
+                            boolean dump) throws IOException {
     this.os = os;
     this.needOutput = needOutput;
     this.needStateOutput = needStateOutput;
@@ -45,8 +60,14 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     stateRecordIndexMap = new HashMap<>();
     arcAddressTable = new ArrayList<>();
     this.outputType = needOutput ? input.getOutputType() : OutputType.NONE;
+    this.dump = dump;
+    if (dump) {
+      dumpBuilder = new DumpTableStringBuilder(needOutput);
+      os.write(dumpBuilder.getTableHeader().getBytes(StandardCharsets.UTF_8));
+    } else {
+      dumpBuilder = null;
+    }
   }
-
 
   private void initCharIndexTable(InputIterable<O> input) {
     charCountMap = new HashMap<>();
@@ -75,6 +96,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
 
   public void close() throws IOException {
     if (arcAddressTable.isEmpty()) {
+      return;
+    }
+    if (dump) {
       return;
     }
     long startByteAddress = arcAddressTable.get(arcAddressTable.size() - 1);
@@ -164,13 +188,28 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     arcAddressTable.add(accessibleAddress);
     address += byteSize;
 
-    record.write(os);
+    if (!dump) {
+      record.write(os);
+    }
     context.setJumpTableAt(i, accessibleAddress);
-
+    int jumpTableByteSize = 0;
     if (generateJumpTable) {
-      int jumpTableByteSize = writeJumpTable(context.jumpTable, accessibleAddress, recHeader);
+      jumpTableByteSize = writeJumpTable(context.jumpTable, accessibleAddress, recHeader);
       address += jumpTableByteSize;
       addAddressTable(arcAddressTable.size() - 1, jumpTableByteSize);
+    }
+
+    if (dump) {
+      Long addr = arcAddressTable.get(arcAddressTable.size() - 1);
+      dumpBuilder.appendStateId(context.stateId, transition.getId());
+      dumpBuilder.appendAddressArc(addr, arc);
+      dumpBuilder.appendNFL(noAddress, transition.isToFinal(), lastTransition);
+      dumpBuilder.appendNextAddr(!noAddress, nextAddress);
+      dumpBuilder.appendOut(transition.getOutput());
+      dumpBuilder.appendOut(transition.getStateOutput());
+      dumpBuilder.appendByteSize(byteSize + jumpTableByteSize, jumpTableByteSize);
+
+      os.write(dumpBuilder.buildTransitionRecord().getBytes(StandardCharsets.UTF_8));
     }
   }
 
@@ -180,6 +219,7 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
    * @param <O>
    */
   private static class StateWriteContext<O> {
+    private final long stateId;
     private final Transitions<O> transitions;
     @Getter
     private final int transitionCount;
@@ -192,6 +232,7 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
       transitionCount = transitions == null ? 0 : transitions.size();
       jumpTable = needJumpTable() ? new long[transitionCount] : null;
       this.arcIndexes = arcIndexes;
+      this.stateId = state.getId();
     }
 
     public CharTransition<O> getArcTransition(int i) {
@@ -229,9 +270,11 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     boolean needTwoBytes = jumpTableByteSize == 2;
     byte jumpTableTag = recHeader.getJumpTableTag(needTwoBytes);
 
-    writeJumpTableElements(jumpTableElementSize, jumpTable);
-    VBCodec.encodeReverse(jumpTable.length, os);
-    os.write(jumpTableTag);
+    if (!dump) {
+      writeJumpTableElements(jumpTableElementSize, jumpTable);
+      VBCodec.encodeReverse(jumpTable.length, os);
+      os.write(jumpTableTag);
+    }
 
     return jumpTableByteSize;
   }

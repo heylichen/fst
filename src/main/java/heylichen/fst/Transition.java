@@ -9,7 +9,9 @@ import java.util.Objects;
 @Getter
 @Setter
 public class Transition<O> {
+  //target state id
   private long id;
+  //whether target state is final state
   private boolean toFinal;
   private Output<O> stateOutput;
   private Output<O> output;

@@ -43,6 +43,19 @@ public class FstSetTest {
   }
 
   @Test
+  public void testEnumerate2() throws IOException {
+    FstSet map = compileSet(FstTestInputFactory.newInputForEnum());
+    Set<String> found = new HashSet<>();
+    map.enumerate((k ) -> found.add(k));
+
+    Set<String> expected = new HashSet<>();
+    expected.add("The");
+    expected.add("Project");
+    expected.add("Gutenberg");
+    Assert.assertEquals(expected, found);
+  }
+
+  @Test
   public void testCommonPrefixSearch() throws IOException {
     FstSet map = compileSet(FstTestInputFactory.newInputForPredictive());
     Set<String> found = new HashSet<>();

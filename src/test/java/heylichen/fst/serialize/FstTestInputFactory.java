@@ -40,6 +40,16 @@ public class FstTestInputFactory {
     return newInput(list);
   }
 
+  public static InputIterable<Integer> newInputForEnum() {
+    List<InputEntry<Integer>> list = Arrays.asList(
+        newEntry("The", null),
+        newEntry("Project", null),
+        newEntry("Gutenberg", null)
+    );
+    list.sort(Comparator.comparing(InputEntry::getKey));
+    return newInput(list);
+  }
+
   public static InputIterable<Integer> newInputForPredictive() {
     List<InputEntry<Integer>> list = Arrays.asList(
         newEntry("predic", 153472),

@@ -46,12 +46,18 @@ public final class VBCodec {
   }
 
   public static int encodeReverse(int value, OutputStream os) throws IOException {
-    byte[] buf = new byte[16];
+    byte[] buf = new byte[10];
     int len = encodeReverse(value, buf);
     os.write(buf, 0, len);
     return len;
   }
 
+  public static int encodeReverse(long value, OutputStream os) throws IOException {
+    byte[] buf = new byte[10];
+    int len = encodeReverse(value, buf);
+    os.write(buf, 0, len);
+    return len;
+  }
 
   public static LenInt decodeReverse(RandomAccessInput input, long offset) {
     long p = offset;

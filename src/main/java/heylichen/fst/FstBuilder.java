@@ -31,7 +31,19 @@ public class FstBuilder<O> {
 
   private boolean needOutput;
 
-  public void compile(InputIterable<O> input, OutputStream os, boolean output, boolean needStateOutput) throws IOException {
+  public void dump(InputIterable<O> input,
+                      OutputStream os,
+                      boolean output,
+                      boolean needStateOutput) throws IOException {
+    this.needOutput = output;
+    fstWriter = new FstSerializeWriter<>(os, output, needStateOutput, input, true);
+    buildFst(input);
+  }
+
+  public void compile(InputIterable<O> input,
+                      OutputStream os,
+                      boolean output,
+                      boolean needStateOutput) throws IOException {
     this.needOutput = output;
     fstWriter = new FstSerializeWriter<>(os, output, needStateOutput, input);
     buildFst(input);

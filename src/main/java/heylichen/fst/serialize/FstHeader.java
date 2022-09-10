@@ -2,6 +2,7 @@ package heylichen.fst.serialize;
 
 import heylichen.fst.matcher.RandomAccessInput;
 import heylichen.fst.output.OutputType;
+import heylichen.fst.serialize.codec.LenInt;
 import heylichen.fst.serialize.codec.LenLong;
 import heylichen.fst.serialize.codec.VBCodec;
 import lombok.Getter;
@@ -45,6 +46,15 @@ public class FstHeader {
     }
   }
 
+  /**
+   * read header
+   * from low address to high address layout:
+   * char index map | char index map bytes count | startAddress | flag byte
+   * @param input
+   * @param byteCodeSize
+   * @return
+   * @throws IOException
+   */
   public boolean read(RandomAccessInput input, long byteCodeSize) throws IOException {
     long remaining = byteCodeSize;
     if (remaining < 1) {
@@ -66,12 +76,11 @@ public class FstHeader {
     p -= lenLong.getLen();
     remaining -= lenLong.getLen();
 
-    int size = getCharIndexSize();
-    if (remaining < size) {
-      return false;
-    }
+    LenInt lenInt = VBCodec.decodeReverse(input, p);
+    int charIndexMapSize = lenInt.getValue();
+    p -= lenInt.getLen();
 
-    byte[] charIndexBytes = input.readBytes(p - size + 1, size);
+    byte[] charIndexBytes = input.readBytes(p - charIndexMapSize + 1, charIndexMapSize);
     String tempStr = new String(charIndexBytes, StandardCharsets.UTF_8);
     this.charIndex = tempStr.toCharArray();
 
@@ -84,12 +93,19 @@ public class FstHeader {
     this.needStateOutput = flags.hasStateOutput();
   }
 
+  /**
+   *  write header as bytes into os
+   *  from low address to high address layout:
+   *  char index map | char index map bytes count | startAddress | flag byte
+   *  write the char index map bytes count because in UTF-8, a char may be more than one byte.
+   * @param os
+   * @throws IOException
+   */
   public void write(OutputStream os) throws IOException {
-    os.write(String.valueOf(charIndex).getBytes(StandardCharsets.UTF_8));
-    //TODO compress
-    byte[] buff = new byte[8];
-    int len = VBCodec.encodeReverse(startAddress, buff);
-    os.write(buff, 0, len);
+    byte[] charIndexBytes = String.valueOf(charIndex).getBytes(StandardCharsets.UTF_8);
+    os.write(charIndexBytes);
+    VBCodec.encodeReverse(charIndexBytes.length, os);
+    VBCodec.encodeReverse(startAddress, os);
     os.write(flags.data);
   }
 
