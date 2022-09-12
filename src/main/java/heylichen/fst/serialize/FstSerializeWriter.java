@@ -7,7 +7,6 @@ import heylichen.fst.Transitions;
 import heylichen.fst.input.InputEntry;
 import heylichen.fst.input.InputIterable;
 import heylichen.fst.output.OutputType;
-import heylichen.fst.serialize.codec.VBCodec;
 import lombok.Getter;
 
 import java.io.IOException;
@@ -134,67 +133,51 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     boolean noAddress = lastTransition && hasAddress && addressIndex == arcAddressTable.size() - 1;
     boolean generateJumpTable = i == 0 && context.needJumpTable();
 
-    FstRecord<O> record = new FstRecord<>(needOutput, needStateOutput);
-    RecordHeader recHeader = record.getHeader();
-    recHeader.setNoAddress(noAddress);
-    recHeader.setLastTransition(lastTransition);
-    recHeader.setFinal(transition.isToFinal());
+    FstRecordWriter<O> recordWriter = new FstRecordWriter<>(needOutput, needStateOutput);
+    recordWriter.setNFL(noAddress, transition.isToFinal(), lastTransition);
 
-    record.setDelta(0);
-    long nextAddress = 0;//for dump
+    int delta = 0;
+    long nextAddress = 0; //for dump
     if (!noAddress && hasAddress) {
-      long delta = address - arcAddressTable.get(addressIndex);
-      record.setDelta((int) delta);
+      delta =(int)( address - arcAddressTable.get(addressIndex));
       nextAddress = address - delta;
     }
+    recordWriter.setDelta(delta);
 
     if (needOutput) {
       boolean hasOutput = transition.getOutput() != null && !transition.getOutput().empty();
-      recHeader.setHasOutput(hasOutput);
       if (hasOutput) {
-        record.setOutput(transition.getOutput());
+        recordWriter.setOutput(transition.getOutput());
       }
 
       if (needStateOutput) {
         boolean hasStateOutput = transition.getStateOutput() != null && !transition.getStateOutput().empty();
-        recHeader.setHasStateOutput(hasStateOutput);
         if (hasStateOutput) {
-          record.setStateOutput(transition.getStateOutput());
+          recordWriter.setStateOutput(transition.getStateOutput());
         }
       }
     }
 
-    int labelIndex = 0;
     char arc = charTransition.getCh();
-    int index = charIndexMap.get(arc);
-    if (index < recHeader.getCharIndexSize()) {
-      labelIndex = index;
-    } else {
-      record.setLabel(arc);
-    }
-    recHeader.setLabelIndex(labelIndex);
+    int labelIndex = charIndexMap.get(arc);
+    labelIndex = recordWriter.setLabel(arc, labelIndex);
 
-    // During reading the serialized state, we read from high address to low address, backward.
-    // If record header flag tag happens to be the same as jump table tag (0xFF or 0xFE),
-    // when we see a tag as 0xFF or 0xFE, it can be a record header flag OR jump table tag.
-    // We can't distinguish them. So change the header byte to make a difference.
-    if (recHeader.hasJumpTable()) {
-      record.setLabel(arc);
-      recHeader.setLabelIndex(0);
-    }
-
-    int byteSize = record.getByteSize();
+    int byteSize = recordWriter.getByteSize();
     long accessibleAddress = address + byteSize - 1;
     arcAddressTable.add(accessibleAddress);
     address += byteSize;
 
     if (!dump) {
-      record.write(os);
+      recordWriter.write(os);
     }
     context.setJumpTableAt(i, accessibleAddress);
     int jumpTableByteSize = 0;
     if (generateJumpTable) {
-      jumpTableByteSize = writeJumpTable(context.jumpTable, accessibleAddress, recHeader);
+      JumpTableWriter jumpTableWriter = new JumpTableWriter(context.jumpTable, accessibleAddress);
+      jumpTableByteSize = jumpTableWriter.calculateTotalSize();
+      if (!dump) {
+        jumpTableWriter.write(os);
+      }
       address += jumpTableByteSize;
       addAddressTable(arcAddressTable.size() - 1, jumpTableByteSize);
     }
@@ -202,11 +185,11 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     if (dump) {
       Long addr = arcAddressTable.get(arcAddressTable.size() - 1);
       dumpBuilder.appendStateId(context.stateId, transition.getId());
-      dumpBuilder.appendAddressArc(addr, arc);
+      dumpBuilder.appendAddress(addr);
+      dumpBuilder.appendArc(arc, labelIndex);
       dumpBuilder.appendNFL(noAddress, transition.isToFinal(), lastTransition);
       dumpBuilder.appendNextAddr(!noAddress, nextAddress);
-      dumpBuilder.appendOut(transition.getOutput());
-      dumpBuilder.appendOut(transition.getStateOutput());
+      dumpBuilder.appendOut(transition.getOutput(), transition.getStateOutput());
       dumpBuilder.appendByteSize(byteSize + jumpTableByteSize, jumpTableByteSize);
 
       os.write(dumpBuilder.buildTransitionRecord().getBytes(StandardCharsets.UTF_8));
@@ -251,62 +234,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     }
   }
 
-  /**
-   * write jump table, has 3 parts:
-   * 1) one byte jumpTableTag
-   * 2) length
-   * 3) elements
-   *
-   * @param jumpTable
-   * @param accessibleAddress
-   * @param recHeader
-   * @return
-   * @throws IOException
-   */
-  private int writeJumpTable(long[] jumpTable, long accessibleAddress, RecordHeader recHeader) throws IOException {
-    int jumpTableElementSize = calculateJumpTableElementSize(accessibleAddress, jumpTable);
-
-    int jumpTableByteSize = 1 + VBCodec.getEncodedBytes(jumpTable.length) + jumpTable.length * jumpTableElementSize;
-    boolean needTwoBytes = jumpTableByteSize == 2;
-    byte jumpTableTag = recHeader.getJumpTableTag(needTwoBytes);
-
-    if (!dump) {
-      writeJumpTableElements(jumpTableElementSize, jumpTable);
-      VBCodec.encodeReverse(jumpTable.length, os);
-      os.write(jumpTableTag);
-    }
-
-    return jumpTableByteSize;
-  }
-
-  private void writeJumpTableElements(int jumpTableElementSize, long[] jumpTable) throws IOException {
-    int byteCount = jumpTableElementSize * jumpTable.length;
-    boolean twoBytes = jumpTableElementSize == 2;
-    byte[] bytes = new byte[byteCount];
-    int byteOffset = 0;
-    for (long l : jumpTable) {
-      bytes[byteOffset++] = (byte) (l & 0xFF);
-      if (twoBytes) {
-        bytes[byteOffset++] = (byte) (l >>> 8 & 0xFF);
-      }
-    }
-    os.write(bytes);
-  }
-
   private void addAddressTable(int i, long delta) {
     long old = arcAddressTable.get(i);
     arcAddressTable.set(i, old + delta);
-  }
-
-  private int calculateJumpTableElementSize(long accessibleAddress, long[] jumpTable) {
-    int eleSize = 1;
-    for (int i = 0; i < jumpTable.length; i++) {
-      jumpTable[i] = accessibleAddress - jumpTable[i];
-      if (jumpTable[i] > 0xFF) {
-        eleSize = 2;
-      }
-    }
-    return eleSize;
   }
 
   private List<Integer> getArcAccessIndexes(char prevChar, Transitions<O> transitions) {

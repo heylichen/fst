@@ -24,5 +24,4 @@ public class FstDumpTest {
     String dump = new String(os.toByteArray(), StandardCharsets.UTF_8);
     System.out.println(dump);
   }
-
 }

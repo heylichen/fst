@@ -17,13 +17,13 @@ public class DumpTableStringBuilder {
 
   public String getTableHeader() {
     StringBuilder sb = new StringBuilder();
-    sb.append("state\ttoState\tAddress \tArc\tN F L\tNextAddr");
+    sb.append("stateToState\tAddress \tArc#idx\tN F L\tNextAddr");
     if (needOutput) {
       sb.append("\tOutput\tStOuts");
     }
     sb.append("\tSize(jt)\n");
 
-    sb.append("-----\t-------\t--------\t---\t-----\t--------");
+    sb.append("------------\t--------\t-------\t-----\t--------");
     if (needOutput) {
       sb.append("\t------\t------");
     }
@@ -32,13 +32,16 @@ public class DumpTableStringBuilder {
   }
 
   public void appendStateId(long stateId, long toStateId) {
-    sb.append(String.format("%-5d", stateId)).append(TAB)
-      .append(String.format("%-7d", toStateId)).append(TAB);
+    sb.append(String.format("%5d->%-5d", stateId, toStateId)).append(TAB);
   }
 
-  public void appendAddressArc(Long addr, char arc) {
+  public void appendAddress(Long addr) {
     sb.append(String.format("%-8d", addr))
-        .append(TAB).append(arc).append(TAB);
+        .append(TAB);
+  }
+
+  public void appendArc(char label, int labelIndex) {
+    sb.append(String.format("'%c' #%-2d", label,labelIndex)).append(TAB);
   }
 
   public void appendNFL(boolean noAddress, boolean isFinalTrans, boolean isLastTrans) {
@@ -57,7 +60,12 @@ public class DumpTableStringBuilder {
     }
   }
 
-  public <O> void appendOut(Output<O> out) {
+  public <O> void appendOut(Output<O> out, Output<O> stateOut) {
+    appendOut(out);
+    appendOut(stateOut);
+  }
+
+  private <O> void appendOut(Output<O> out) {
     if (!needOutput) {
       return;
     }

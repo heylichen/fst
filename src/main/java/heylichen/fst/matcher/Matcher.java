@@ -2,47 +2,30 @@ package heylichen.fst.matcher;
 
 import heylichen.fst.output.Output;
 import heylichen.fst.output.OutputFactory;
-import heylichen.fst.serialize.FstHeader;
-import heylichen.fst.serialize.FstRecord;
-import heylichen.fst.serialize.RecordHeader;
-import heylichen.fst.serialize.codec.LenInt;
-import heylichen.fst.serialize.codec.VBCodec;
-import lombok.Getter;
-import org.apache.commons.lang3.tuple.Pair;
+import heylichen.fst.serialize.FstRecordBody;
+import heylichen.fst.serialize.FstRecordHeader;
+import heylichen.fst.serialize.JumpTableFstReader;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 /**
  * @author lichen
  * @date 2022-9-1 8:42
  */
-public class Matcher<O> {
-  @Getter
-  private final OutputFactory<O> outputFactory;
-  private final RandomAccessInput input;
-  @Getter
-  private final FstHeader fstHeader;
-
+public class Matcher<O> extends JumpTableFstReader<O> {
   // for suggestion search
   private static final int MIN_EDITS = 2;
   private static final int MAX_EDITS = 6;
   private static final JaroWinklerSimilarity JW = new JaroWinklerSimilarity();
 
   public Matcher(OutputFactory<O> outputFactory, RandomAccessInput input) throws IOException {
-    this.outputFactory = outputFactory;
-    this.input = input;
-
-    fstHeader = new FstHeader();
-    boolean readHeadSuccess = fstHeader.read(input, input.getSize());
-
-    if (!readHeadSuccess) {
-      throw new IllegalArgumentException("invalid input, failed to read fst header!");
-    }
+    super(input, outputFactory);
     if (needOutput() && (outputFactory == null || fstHeader.getFlagOutputType() != outputFactory.getOutputType())) {
       throw new IllegalArgumentException("invalid input: outputFactory output type does not match fst header!");
     }
@@ -52,7 +35,7 @@ public class Matcher<O> {
    * search for key, do process as needed
    *
    * @param string         the searching target
-   * @param outputConsumer        is a consumer logic for found output
+   * @param outputConsumer is a consumer logic for found output
    * @param prefixConsumer a BiConsumer logic for processing keys that have a common prefix with string
    * @return
    * @throws IOException
@@ -64,6 +47,7 @@ public class Matcher<O> {
     boolean matched = false;
     // end address of current transition
 
+    RecordMetaBytes recordMeta = new RecordMetaBytes();
     Offset transitionAddress = new Offset(fstHeader.getStartAddress());
     Output<O> output = newOutput();
     int i = 0;
@@ -75,11 +59,9 @@ public class Matcher<O> {
       long transitionEnd = transitionAddress.get();
       Offset p = new Offset(transitionEnd);
 
-      byte recordHeaderByte = input.readByte(p.getAndAdd(-1));
-      RecordHeader recordHeader = newRecordHeader(recordHeaderByte);
-
-      if (recordHeader.hasJumpTable()) {
-        boolean found = lookupInJumpTable(transitionAddress, p, recordHeader.getJumpTableElementSize(), ch);
+      readRecordHead(p, recordMeta);
+      if (recordMeta.isHasJumpTable()) {
+        boolean found = lookupInJumpTable(transitionAddress, p, recordMeta, ch);
         if (found) {
           //read arc in the next loop
           continue;
@@ -88,8 +70,8 @@ public class Matcher<O> {
           break;
         }
       }
-
-      FstRecord<O> tranRecord = readRecord(recordHeader, p);
+      FstRecordHeader recordHeader = recordMeta.getRecordHeader();
+      FstRecordBody<O> tranRecord = readRecord(recordHeader, p);
       // delta is position diff between current transition and next state
       // if current state is last state, delta is 0
       int deltaToNextState = tranRecord.getDelta();
@@ -108,29 +90,29 @@ public class Matcher<O> {
 
       if (ch == tranRecord.getLabel()) {
         // if found char in transitions of current state, will go to next state
-        if (needOutput()) {
+        if (needOutput() && output != null) {
           output.append(tranRecord.getOutput());
         }
         i++;
         if (recordHeader.isFinal()) {
           //we have a prefix
           if (prefixConsumer != null) {
+            matched = true;
             if (stateOutput == null || stateOutput.empty()) {
               prefixConsumer.accept(i, output);
             } else {
               prefixConsumer.accept(i, output.appendCopy(stateOutput));
             }
-            matched = true;
           }
           if (i == string.length()) {
             //we have a match string
+            matched = true;
             if (outputConsumer != null) {
               if (stateOutput == null || stateOutput.empty()) {
                 outputConsumer.accept(output);
               } else {
                 outputConsumer.accept(output.appendCopy(stateOutput));
               }
-              matched = true;
               break;
             }
           }
@@ -154,30 +136,24 @@ public class Matcher<O> {
     depthFirstVisit(fstHeader.getStartAddress(), context);
   }
 
-
   private void depthFirstVisit(long address,
                                VisitContext<O> context) {
+    RecordMetaBytes recordMetaBytes = new RecordMetaBytes();
     while (true) {
       long end = address;
       Offset p = new Offset(end);
 
-      byte recordHeaderByte = input.readByte(p.getAndAdd(-1));
-      RecordHeader recordHeader = newRecordHeader(recordHeaderByte);
-
-      if (recordHeader.hasJumpTable()) {
+      readRecordHead(p, recordMetaBytes);
+      if (recordMetaBytes.isHasJumpTable()) {
         // just move to transition record address, pass jumpTable
-        int jumpTableEleSize = recordHeader.getJumpTableElementSize();
-        LenInt lenInt = VBCodec.decodeReverse(input, p.get());
-
-        int eleCount = lenInt.getValue();
-        p.subtract(lenInt.getLen());
-        p.subtract((long) eleCount * jumpTableEleSize);
+        readPassJumpTable(p, recordMetaBytes);
 
         address -= end - p.get();
         continue;
       }
 
-      FstRecord<O> transRecord = readRecord(recordHeader, p);
+      FstRecordHeader recordHeader = recordMetaBytes.getRecordHeader();
+      FstRecordBody<O> transRecord = readRecord(recordHeader, p);
       long byteSize = end - p.get();
       long nextAddress = 0;
       if (!recordHeader.isNoAddress()) {
@@ -198,7 +174,7 @@ public class Matcher<O> {
       String prefix = context.getPrefix();
       if (recordHeader.isFinal()) {
         //got a key
-        if (!transRecord.isStateOutputEmpty()) {
+        if (!transRecord.isStateOutputEmpty() && output != null) {
           output.appendCopy(transRecord.getStateOutput());
         }
         if (atm.isMatch()) {
@@ -212,6 +188,7 @@ public class Matcher<O> {
       }
 
       if (!atm.canMatch()) {
+        //prune search path
         break;
       }
 
@@ -236,134 +213,15 @@ public class Matcher<O> {
     }
   }
 
-  /**
-   * read current transition record format. left to right, from low address to high address.
-   * field in [] is optional.
-   * [stateOutput] | [output] | [delta] | [arc label] | recordHeaderByte
-   *
-   * @param recordHeader
-   * @param p
-   * @return
-   */
-  private FstRecord<O> readRecord(RecordHeader recordHeader, Offset p) {
-    // read current transition record format. left to right, from low address to high address.
-    // field in [] is optional.
-    // [stateOutput] | [output] | [delta] | [arc label] | recordHeaderByte
-    char arc = readArc(recordHeader, p);
-    // delta is position diff between current transition and next state
-    // if current state is last state, delta is 0
-    int deltaToNextState = 0;
-    if (!recordHeader.isNoAddress()) {
-      LenInt lenInt = VBCodec.decodeReverse(input, p.get());
-      deltaToNextState = lenInt.getValue();
-      p.subtract(lenInt.getLen());
-    }
-
-    Output<O> outputSuffix = null;
-    if (recordHeader.hasOutput()) {
-      Pair<Output<O>, Integer> pair = outputFactory.readByteValue(input, p.get());
-      outputSuffix = pair.getKey();
-      p.subtract(pair.getValue());
-    }
-
-    Output<O> stateOutput = null;
-    if (recordHeader.hasStateOutput()) {
-      Pair<Output<O>, Integer> pair = outputFactory.readByteValue(input, p.get());
-      stateOutput = pair.getKey();
-      p.subtract(pair.getValue());
-    }
-
-    return new FstRecord<>(arc, deltaToNextState, outputSuffix, stateOutput);
-  }
-
-  private boolean lookupInJumpTable(Offset transitionAddress, Offset p, int jumpTableEleSize, char ch) {
-    LenInt lenInt = VBCodec.decodeReverse(input, p.get());
-
-    int eleCount = lenInt.getValue();
-    p.subtract(lenInt.getLen());
-    p.subtract((long) eleCount * jumpTableEleSize);
-
-    long jumpTableStart = p.get() + 1;
-    int jumpTableByteSize = 1 + lenInt.getLen() + eleCount * jumpTableEleSize;
-    long arcsBaseAddress = transitionAddress.get() - jumpTableByteSize;
-    Function<Long, Character> getArcFunction = (Long index) -> {
-      long off = arcsBaseAddress - lookupJumpTable(jumpTableStart, index.intValue(), jumpTableEleSize);
-      Offset offP = new Offset(off);
-      byte flag = input.readByte(offP.getAndAdd(-1));
-      RecordHeader rh = newRecordHeader(flag);
-      return readArc(rh, offP);
-    };
-
-    long foundIndex = binarySearchIndexForChar(0, eleCount,
-        (Long index) -> getArcFunction.apply(index) < ch);
-
-    if (foundIndex < eleCount && getArcFunction.apply(foundIndex) == ch) {
-      long offset = lookupJumpTable(jumpTableStart, (int) foundIndex, jumpTableEleSize);
-      transitionAddress.subtract((offset + jumpTableByteSize));
-    } else {
-      //no arc found in transitions of current state
-      return false;
-    }
-    return true;
-  }
-
-  private int lookupJumpTable(long jumpTableStart, int i, int elementSize) {
-    int value = input.readByte(jumpTableStart + i * elementSize) & 0xFF;
-    if (elementSize == 2) {
-      value += (input.readByte(jumpTableStart + i * elementSize + 1) & 0xFF) << 8;
-    }
-    return value;
-  }
-
-  private char readArc(RecordHeader recordHeader, Offset p) {
-    int index = recordHeader.getLabelIndex();
-    if (index > 0) {
-      return fstHeader.getChar(index);
-    } else {
-      byte[] charBytes = AlphabetUtil.readUTF8Bytes(input, p.get());
-      p.subtract(charBytes.length);
-      // only consider BMP in Unicode.
-      // supplementary characters are represented as a pair of char values in Java.
-      return (new String(charBytes, StandardCharsets.UTF_8)).charAt(0);
-    }
-  }
-
-  /**
-   * char is in less function
-   *
-   * @param first
-   * @param last
-   * @param less
-   * @return
-   */
-  private long binarySearchIndexForChar(long first, long last, Function<Long, Boolean> less) {
-    long len = last - first;
-
-    while (len > 0) {
-      long half = len >> 1;
-      long middle = first + half;
-      if (less.apply(middle)) {
-        first = middle;
-        first++;
-        len = len - half - 1;
-      } else {
-        len = half;
-      }
-    }
-    return first;
-  }
-
   public void searchByEditDistance(String key, int maxEdits, BiConsumer<String, Output<O>> biConsumer) {
     if (StringUtils.isEmpty(key)) {
       return;
     }
 
     RowLevenshteinAutomata la = new RowLevenshteinAutomata(key, maxEdits);
-    Set<String> keys = new HashSet<>();
     VisitContext<O> context = noPrefixVisitContext(biConsumer, la);
     depthFirstVisit(context);
   }
-
 
   public List<Suggestion<O>> suggestSearch(String key) {
     List<Suggestion<O>> list = Collections.emptyList();
@@ -408,38 +266,5 @@ public class Matcher<O> {
       results.add(new Suggestion<>(k, out));
     });
     return results;
-  }
-
-  public VisitContext<O> prefixVisitContext(String prefix, BiConsumer<String, Output<O>> accept, Automaton automaton) {
-    return contextBuilder().withPrefix("").withAutomaton(automaton).withConsumer(accept)
-        .withPrefix(prefix).build();
-  }
-
-  public VisitContext<O> noPrefixVisitContext(BiConsumer<String, Output<O>> accept, Automaton automaton) {
-    return contextBuilder().withPrefix("").withAutomaton(automaton).withConsumer(accept).build();
-  }
-
-  private VisitContext.VisitContextBuilder<O> contextBuilder() {
-    VisitContext.VisitContextBuilder<O> builder = VisitContext.builder();
-    builder.withPartialOutput(newOutput())
-        .withPartialKey("");
-    return builder;
-  }
-
-  // -------------------------- tool methods
-  private boolean needOutput() {
-    return fstHeader.isNeedOutput();
-  }
-
-  private boolean needStateOutput() {
-    return fstHeader.isNeedStateOutput();
-  }
-
-  private RecordHeader newRecordHeader(byte recordHeaderByte) {
-    return RecordHeader.newInstance(needOutput(), needStateOutput(), recordHeaderByte);
-  }
-
-  private Output<O> newOutput() {
-    return needOutput() ? outputFactory.newInstance() : null;
   }
 }

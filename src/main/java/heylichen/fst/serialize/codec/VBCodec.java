@@ -39,11 +39,21 @@ public final class VBCodec {
 
   public static int encodeReverse(int value, byte[] out) {
     int len = encode(value, out);
-    for (int i = 0; i < len / 2; i++) {
-      swap(out, i, len - 1 - i);
-    }
+   reverse(out, 0, len);
     return len;
   }
+
+  private static void reverse(byte[] out, int from, int len) {
+    for (int i = from; i < len / 2; i++) {
+      swap(out, i, len - 1 - i);
+    }
+  }
+
+  public static byte[] reverse(byte[] out) {
+    reverse(out, 0, out.length);
+    return out;
+  }
+
 
   public static int encodeReverse(int value, OutputStream os) throws IOException {
     byte[] buf = new byte[10];

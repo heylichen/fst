@@ -3,7 +3,7 @@ package heylichen.fst.matcher;
 /**
  * a Mutable offset
  */
-class Offset {
+public class Offset {
   private long offset;
 
   public Offset() {

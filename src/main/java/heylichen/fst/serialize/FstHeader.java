@@ -12,6 +12,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/**
+ * store meta info for the whole FST.
+ */
 public class FstHeader {
   private Flags flags;
   @Getter
@@ -55,10 +58,11 @@ public class FstHeader {
    * @return
    * @throws IOException
    */
-  public boolean read(RandomAccessInput input, long byteCodeSize) throws IOException {
+  public void read(RandomAccessInput input, long byteCodeSize) throws IOException {
     long remaining = byteCodeSize;
     if (remaining < 1) {
-      return false;
+
+      throw new IllegalArgumentException("invalid input, failed to read fst header!");
     }
     long p = byteCodeSize - 1;
     flags.data = input.readByte(p);
@@ -68,7 +72,7 @@ public class FstHeader {
     remaining -= 1;
     if (remaining < 8) {
       //we are going to read a long
-      return false;
+      throw new IllegalArgumentException("invalid input, failed to read fst header!");
     }
 
     LenLong lenLong = VBCodec.decodeLongReverse(input, p);
@@ -83,8 +87,6 @@ public class FstHeader {
     byte[] charIndexBytes = input.readBytes(p - charIndexMapSize + 1, charIndexMapSize);
     String tempStr = new String(charIndexBytes, StandardCharsets.UTF_8);
     this.charIndex = tempStr.toCharArray();
-
-    return true;
   }
 
 
@@ -110,7 +112,7 @@ public class FstHeader {
   }
 
   private int getCharIndexSize() {
-    return RecordHeader.getCharIndexSize(needOutput, needStateOutput);
+    return FstRecordHeader.getCharIndexSize(needOutput, needStateOutput);
   }
 
   /**

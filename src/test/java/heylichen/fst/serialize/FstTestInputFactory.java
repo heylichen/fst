@@ -1,8 +1,8 @@
 package heylichen.fst.serialize;
 
-import heylichen.fst.input.IntDataInputIterable;
 import heylichen.fst.input.InputEntry;
 import heylichen.fst.input.InputIterable;
+import heylichen.fst.input.IntDataInputIterable;
 import heylichen.fst.input.SimpleInputEntry;
 import heylichen.fst.output.IntOutput;
 

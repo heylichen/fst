@@ -8,7 +8,7 @@ package heylichen.fst.serialize;
  * bits       3            1                  1             1          1            1
  * bit   label index  has state output    has output      final   last trans    no_address
  */
-public class OutputAndStateOutputHeader extends RecordHeader {
+public class OutputAndStateOutputHeader extends FstRecordHeader {
   public static final int OUTPUT_FLAG = 0b0000_1000;
   public static final int STATE_OUTPUT_FLAG = 0b0001_0000;
 

@@ -23,8 +23,8 @@ class VisitContext<O> {
     this.prefix = prefix;
   }
 
-  public VisitContext copy() {
-    return new VisitContext(partialKey, partialOutput,
+  public VisitContext<O> copy() {
+    return new VisitContext<>(partialKey, partialOutput,
         consumer, automaton, prefix);
   }
 
