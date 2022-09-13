@@ -23,6 +23,7 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
   //dump serialized layout
   private final boolean dump;
   private final DumpTableStringBuilder dumpBuilder;
+  private final List<String> dumpJumpTables;
   private Map<Character, Integer> charIndexMap;
 
   private Map<Character, Counter> charCountMap;
@@ -30,9 +31,9 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
 
   private long address = 0;
   //one state record has one entry. key is state id, value is index in arcAddressTable
-  private Map<Long, Integer> stateRecordIndexMap;
+  private final Map<Long, Integer> stateRecordIndexMap;
   //the arcs of all transitions of all states
-  private List<Long> arcAddressTable;
+  private final List<Long> arcAddressTable;
 
   //if transition count>=8, use jump table for better search performance
   public static final int NEED_JUMP_TABLE_TRANS_COUNT = 8;
@@ -63,8 +64,10 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     if (dump) {
       dumpBuilder = new DumpTableStringBuilder(needOutput);
       os.write(dumpBuilder.getTableHeader().getBytes(StandardCharsets.UTF_8));
+      dumpJumpTables = new ArrayList<>();
     } else {
       dumpBuilder = null;
+      dumpJumpTables = null;
     }
   }
 
@@ -98,11 +101,22 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
       return;
     }
     if (dump) {
+      dumpJumpTable();
       return;
     }
     long startByteAddress = arcAddressTable.get(arcAddressTable.size() - 1);
     FstHeader fstHeader = new FstHeader(outputType, needStateOutput, startByteAddress, charIndexMap);
     fstHeader.write(os);
+  }
+
+  private void dumpJumpTable() throws IOException {
+    if (dumpJumpTables == null || dumpJumpTables.isEmpty()) {
+      return;
+    }
+    os.write("\n".getBytes(StandardCharsets.UTF_8));
+    for (String dumpJumpTable : dumpJumpTables) {
+      os.write(dumpJumpTable.getBytes(StandardCharsets.UTF_8));
+    }
   }
 
   public void write(State<O> state, char previousArc) throws IOException {
@@ -139,7 +153,7 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
     int delta = 0;
     long nextAddress = 0; //for dump
     if (!noAddress && hasAddress) {
-      delta =(int)( address - arcAddressTable.get(addressIndex));
+      delta = (int) (address - arcAddressTable.get(addressIndex));
       nextAddress = address - delta;
     }
     recordWriter.setDelta(delta);
@@ -177,6 +191,8 @@ public class FstSerializeWriter<O> implements FstWriter<O> {
       jumpTableByteSize = jumpTableWriter.calculateTotalSize();
       if (!dump) {
         jumpTableWriter.write(os);
+      } else {
+        dumpJumpTables.add(jumpTableWriter.dump(context.stateId));
       }
       address += jumpTableByteSize;
       addAddressTable(arcAddressTable.size() - 1, jumpTableByteSize);

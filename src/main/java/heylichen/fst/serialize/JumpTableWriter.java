@@ -22,11 +22,13 @@ public class JumpTableWriter {
 
   private final long[] jumpTable;
   private final int jumpTableElementSize;
+  private final long lastAddress;
 
   public JumpTableWriter(long[] jumpTable, long accessibleAddress) {
     this.jumpTable = jumpTable;
     normalizeJumpTable(accessibleAddress);
     jumpTableElementSize = calculateElementSize(jumpTable);
+    lastAddress = accessibleAddress;
   }
 
   private void normalizeJumpTable(long accessibleAddress) {
@@ -68,6 +70,23 @@ public class JumpTableWriter {
     os.write(JUMP_TABLE_HEAD);
   }
 
+  public String dump(long stateId) throws IOException {
+    StringBuilder sb = new StringBuilder();
+    sb.append(String.format("stateId=%d jumpTable, elements format is index:\t delta(address)", stateId));
+
+    dumpJumpTableElements(sb);
+
+    sb.append("len=").append(jumpTable.length);
+    sb.append("\ttag=").
+        append(toBinary(jumpTableElementSize > 1 ? JUMP_ELE_TWO_BYTE : JUMP_ELE_ONE_BYTE))
+        .append("\theader=").append(toBinary(JUMP_TABLE_HEAD)).append("\n\n");
+    return sb.toString();
+  }
+
+  private String toBinary(byte tag) {
+    return Integer.toBinaryString(tag & 0xFF).toUpperCase();
+  }
+
   private void writeJumpTableElements(OutputStream os) throws IOException {
     int byteCount = jumpTableElementSize * jumpTable.length;
     boolean twoBytes = jumpTableElementSize == 2;
@@ -80,6 +99,24 @@ public class JumpTableWriter {
       }
     }
     os.write(bytes);
+  }
+
+  private void dumpJumpTableElements(StringBuilder sb) {
+    int width = String.valueOf(lastAddress).length();
+    int deltaWidth = String.valueOf(jumpTable[jumpTable.length - 1]).length();
+    String format = "%" + deltaWidth + "d(" + "%" + width + "d)";
+
+    for (int i = 0; i < jumpTable.length; i++) {
+      if ((i ) % 8 == 0) {
+        sb.append('\n').append(String.format("%d:\t", i ));
+      }
+      long delta = jumpTable[i];
+      long address = lastAddress - delta;
+      String ele = String.format(format, delta, address);
+      sb.append(ele).append('\t');
+
+    }
+    sb.append('\n');
   }
 
 }
