@@ -115,7 +115,7 @@ public class FstMapTest {
   private <O> FstMap<O> compileMap(InputIterable<O> input, OutputFactory<O> factory) throws IOException {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
     FstBuilder<O> fstBuilder = new FstBuilder<>();
-    fstBuilder.compile(input, os, true,true);
+    fstBuilder.compile(input, os, true,false);
 
     RandomAccessInput di = new ByteArrayInput(os.toByteArray());
     return new FstMap<>(factory, di);

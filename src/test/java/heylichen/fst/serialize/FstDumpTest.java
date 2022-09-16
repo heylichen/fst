@@ -9,9 +9,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class FstDumpTest {
+
   @Test
-  public void name() {
-    System.out.println(String.format("%10d",2));
+  public void testDumpSimple() throws IOException {
+    InputIterable<Integer> input = FstTestInputFactory.newSimpleSample();
+    ByteArrayOutputStream os = new ByteArrayOutputStream();
+    FstBuilder<Integer> fstBuilder = new FstBuilder<>();
+    fstBuilder.dump(input, os, true, false);
+
+    String dump = new String(os.toByteArray(), StandardCharsets.UTF_8);
+    System.out.println(dump);
   }
 
   @Test
@@ -19,7 +26,7 @@ public class FstDumpTest {
     InputIterable<Integer> input = FstTestInputFactory.newMultipleKeyWithJumpTable();
     ByteArrayOutputStream os = new ByteArrayOutputStream();
     FstBuilder<Integer> fstBuilder = new FstBuilder<>();
-    fstBuilder.dump(input, os, true, true);
+    fstBuilder.dump(input, os, true, false);
 
     String dump = new String(os.toByteArray(), StandardCharsets.UTF_8);
     System.out.println(dump);

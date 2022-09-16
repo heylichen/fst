@@ -11,19 +11,25 @@ import java.nio.charset.StandardCharsets;
 public class FstDotWriterTest {
 
   @Test
-  public void testDot1()  throws IOException  {
+  public void testDotSample() throws IOException {
+    InputIterable<Integer> input = FstTestInputFactory.newSimpleSample();
+    printDot(input);
+  }
+
+  @Test
+  public void testDot1() throws IOException {
     InputIterable<Integer> input = FstTestInputFactory.newMultipleKeyWithJumpTable();
     printDot(input);
   }
 
   @Test
-  public void testDot2()  throws IOException  {
+  public void testDot2() throws IOException {
     InputIterable<Integer> input = FstTestInputFactory.newInputForEditDistance();
     printDot(input);
   }
 
   @Test
-  public void testDot3()  throws IOException  {
+  public void testDot3() throws IOException {
     InputIterable<Integer> input = FstTestInputFactory.newInputForPredictive();
     printDot(input);
   }

@@ -13,6 +13,14 @@ import java.util.List;
 
 public class FstTestInputFactory {
 
+  public static InputIterable<Integer> newSimpleSample() {
+    List<InputEntry<Integer>> list = Arrays.asList(
+        new SimpleInputEntry<>("say", new IntOutput(31)),
+        new SimpleInputEntry<>("stay", new IntOutput(28))
+    );
+    return newInput(list);
+  }
+
   public static InputIterable<Integer> newMultipleKeyWithJumpTable() {
     List<InputEntry<Integer>> list = Arrays.asList(
         new SimpleInputEntry<>("say", new IntOutput(31)),
